@@ -37,8 +37,9 @@ async function signIn(formData: FormData) {
     console.log("App metadata:", authData.user.app_metadata)
     console.log("Detected role:", userRole)
 
-    if (userRole !== "superuser") {
-      return redirect(`/admin/login?error=Access denied. Role: ${userRole || "none"} (need: superuser)`)
+    const allowedRoles = ["admin", "superuser"]
+    if (!allowedRoles.includes(userRole)) {
+      return redirect(`/admin/login?error=Access denied. Role: ${userRole || "none"} (need: admin or superuser)`)
     }
   } catch (error) {
     console.error("Authentication error:", error)
