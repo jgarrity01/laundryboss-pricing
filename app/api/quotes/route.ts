@@ -45,6 +45,8 @@ export async function POST(req: Request) {
     const {
       prospectName,
       ownerName,
+      customerEmail, // Added email field
+      // customerPhone, // Added phone field
       distributorName,
       storeSize,
       numWashers,
@@ -64,9 +66,13 @@ export async function POST(req: Request) {
       additionalNotes,
       monthlyRevenue,
       expectedCloseDate,
+      selectedPricingOption,
+      serviceBreakdown,
     }: {
       prospectName: string
       ownerName: string
+      customerEmail: string // Added email type
+      // customerPhone: string // Added phone type
       distributorName?: string
       storeSize: number
       numWashers: number
@@ -86,6 +92,8 @@ export async function POST(req: Request) {
       additionalNotes?: string
       monthlyRevenue?: number
       expectedCloseDate?: string
+      selectedPricingOption?: string
+      serviceBreakdown?: any
     } = body
 
     const supabase = getSupabaseAdmin()
@@ -170,6 +178,8 @@ export async function POST(req: Request) {
         expires_at: expiresAt,
         prospect_name: prospectName,
         owner_name: ownerName,
+        customer_email: customerEmail, // Added email field to database insert
+        // customer_phone: customerPhone, // Added phone field to database insert
         distributor_name: distributorName || null,
         store_size: storeSize,
         num_washers: numWashers,
@@ -199,6 +209,14 @@ export async function POST(req: Request) {
         financed_monthly_payment: financedMonthlyPayment,
         option2_interest_rate: interestRate,
         status: "New",
+        additional_savings_monthly: selectedPricingOption
+          ? JSON.stringify({
+              selectedOption: selectedPricingOption,
+              serviceBreakdown: serviceBreakdown,
+              isDistributor: isDistributor,
+              hasCleanShowPricing: selectedPricingOption === "Option 4: Clean Show 2025 Special Pricing",
+            })
+          : null,
       })
       .select()
       .single()

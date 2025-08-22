@@ -30,6 +30,29 @@ function createSupabaseSqlClient(): SqlClient {
       return [{ count }] as T
     }
 
+    if (query.includes("select") && query.includes("from quotes") && query.includes("order by created_at desc")) {
+      const { data, error } = await supabase
+        .from("quotes")
+        .select(`
+          id,
+          created_at,
+          owner_name,
+          prospect_name,
+          status,
+          expected_close_date,
+          monthly_recurring,
+          one_time_charges,
+          total_price_option1,
+          num_washers,
+          num_dryers
+        `)
+        .order("created_at", { ascending: false })
+        .limit(200)
+
+      if (error) throw new Error(error.message)
+      return data as T
+    }
+
     if (query.includes("SELECT") && query.includes("FROM quotes")) {
       const { data, error } = await supabase.from("quotes").select("*")
       if (error) throw new Error(error.message)

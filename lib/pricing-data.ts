@@ -33,8 +33,8 @@ export const pricingData: PricingData = {
     dryers: { price: 5.0 },
     wdfSoftware: { price: 100.0 },
     pickupDelivery: { price: 100.0 },
-    aiAttendant: { price: 49.99 },
-    aiAttendantWithIntegration: { price: 50.0 },
+    aiAttendant: { price: 50.0 },
+    aiAttendantWithIntegration: { price: 100.0 },
   },
   oneTimeCharges: {
     harnesses: { price: 25.0 },

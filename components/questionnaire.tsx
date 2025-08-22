@@ -30,9 +30,31 @@ function parseCurrencyString(value: string): number {
   return Number.isFinite(num) ? num : 0
 }
 
+function formatPhoneNumber(value: string): string {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, "")
+
+  // Handle different lengths
+  if (digits.length === 0) return ""
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+
+  // For numbers longer than 10 digits, just format the first 10
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+}
+
+function validatePhoneNumber(value: string): boolean {
+  // Accept either 10 digits or formatted phone numbers
+  const digits = value.replace(/\D/g, "")
+  return digits.length === 10
+}
+
 export interface QuestionnaireData {
   prospectName: string
   ownerName: string
+  customerEmail: string
+  customerPhone: string
   distributorName: string
   storeSize: number
   numWashers: number
@@ -71,6 +93,8 @@ export function Questionnaire({ onComplete, initialData }: QuestionnaireProps) {
     initialData || {
       prospectName: "",
       ownerName: "",
+      customerEmail: "",
+      customerPhone: "",
       distributorName: "",
       storeSize: 0,
       numWashers: 0,
@@ -104,6 +128,8 @@ export function Questionnaire({ onComplete, initialData }: QuestionnaireProps) {
   const [monthlyRevenueDisplay, setMonthlyRevenueDisplay] = useState<string>(
     initialData && initialData.monthlyRevenue ? formatCurrency0(initialData.monthlyRevenue) : "",
   )
+
+  const [phoneDisplay, setPhoneDisplay] = useState<string>(initialData?.customerPhone || "")
 
   // Auto-suggest kiosk configuration based on store characteristics
   useEffect(() => {
@@ -221,6 +247,44 @@ export function Questionnaire({ onComplete, initialData }: QuestionnaireProps) {
                   onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
                   required
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="customerEmail">Email Address</Label>
+                <Input
+                  id="customerEmail"
+                  type="email"
+                  value={formData.customerEmail}
+                  onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+                  required
+                  placeholder="owner@business.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customerPhone">Phone Number</Label>
+                <Input
+                  id="customerPhone"
+                  type="tel"
+                  value={phoneDisplay}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value)
+                    setPhoneDisplay(formatted)
+                    // Store the raw digits for database
+                    const digits = e.target.value.replace(/\D/g, "")
+                    setFormData({ ...formData, customerPhone: digits })
+                  }}
+                  onBlur={() => {
+                    // Validate on blur and show error if invalid
+                    if (phoneDisplay && !validatePhoneNumber(phoneDisplay)) {
+                      // Could add error state here if needed
+                    }
+                  }}
+                  required
+                  placeholder="(555) 123-4567 or 5551234567"
+                />
+                <p className="text-xs text-gray-500">Enter 10 digits. We'll format it automatically: (555) 123-4567</p>
               </div>
             </div>
 
@@ -499,7 +563,7 @@ export function Questionnaire({ onComplete, initialData }: QuestionnaireProps) {
                     checked={formData.hasAiAttendant}
                     onCheckedChange={(checked) => setFormData({ ...formData, hasAiAttendant: checked as boolean })}
                   />
-                  <Label htmlFor="hasAiAttendant">AI Attendant Service ($49.99/month)</Label>
+                  <Label htmlFor="hasAiAttendant">AT Attendant Service ($50.00/month)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -515,13 +579,11 @@ export function Questionnaire({ onComplete, initialData }: QuestionnaireProps) {
                       setFormData(newState)
                     }}
                   />
-                  <Label htmlFor="hasAiAttendantWithIntegration">
-                    AI Attendant with Laundry Boss Integration Service ($50.00/month)
-                  </Label>
+                  <Label htmlFor="hasAiAttendantWithIntegration">AI Integration Service ($100.00/month)</Label>
                 </div>
                 {formData.hasAiAttendantWithIntegration && (
                   <div className="text-sm text-blue-600 ml-6">
-                    ℹ️ This service automatically includes AI Attendant Service
+                    ℹ️ This service automatically includes AT Attendant Service
                   </div>
                 )}
               </div>

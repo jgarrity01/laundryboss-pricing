@@ -1,59 +1,74 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 
-async function signIn(formData: FormData) {
-  "use server"
+export default function AdminLoginPage() {
+  const [email, setEmail] = useState("admin@thelaundryboss.com")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
 
-  if (!email || !password) {
-    return redirect("/admin/login?error=Email and password are required")
+    try {
+      const supabase = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      console.log("[v0] Client-side authentication starting...")
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        console.error("[v0] Login error:", authError)
+        setError(`Authentication failed: ${authError.message}`)
+        return
+      }
+
+      if (!authData.user) {
+        setError("No user returned from authentication")
+        return
+      }
+
+      console.log("[v0] Authentication successful, user:", authData.user.email)
+
+      // Check user role
+      const userRole = authData.user.user_metadata?.role || authData.user.app_metadata?.role
+      console.log("[v0] User role:", userRole)
+
+      const allowedRoles = ["admin", "superuser"]
+      if (!allowedRoles.includes(userRole)) {
+        setError(`Access denied. Role: ${userRole || "none"} (need: admin or superuser)`)
+        return
+      }
+
+      console.log("[v0] Role check passed, redirecting to dashboard...")
+
+      router.push("/admin")
+    } catch (error) {
+      console.error("[v0] Authentication error:", error)
+      setError(`Exception: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  try {
-    const supabase = createClient()
-
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (authError) {
-      console.error("Login error:", authError)
-      return redirect(`/admin/login?error=${encodeURIComponent(`Auth failed: ${authError.message}`)}`)
-    }
-
-    if (!authData.user) {
-      return redirect("/admin/login?error=No user returned from authentication")
-    }
-
-    const userRole = authData.user.user_metadata?.role || authData.user.app_metadata?.role
-    console.log("User metadata:", authData.user.user_metadata)
-    console.log("App metadata:", authData.user.app_metadata)
-    console.log("Detected role:", userRole)
-
-    const allowedRoles = ["admin", "superuser"]
-    if (!allowedRoles.includes(userRole)) {
-      return redirect(`/admin/login?error=Access denied. Role: ${userRole || "none"} (need: admin or superuser)`)
-    }
-  } catch (error) {
-    console.error("Authentication error:", error)
-    return redirect(`/admin/login?error=Exception: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-
-  redirect("/admin")
-}
-
-export default function AdminLoginPage({
-  searchParams,
-}: {
-  searchParams: { error?: string }
-}) {
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-teal-50">
       <Card className="w-full max-w-md">
@@ -68,23 +83,33 @@ export default function AdminLoginPage({
           <CardTitle className="text-xl font-semibold text-gray-800">Laundry Boss Quote Tool Admin Login</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={signIn} className="space-y-4">
-            {searchParams.error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">
-                {searchParams.error}
-              </div>
-            )}
+          <form onSubmit={handleSignIn} className="space-y-4">
+            {error && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">{error}</div>}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" defaultValue="admin@thelaundryboss.com" required />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            <Button type="submit" className="w-full">
-              Sign in
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
         </CardContent>

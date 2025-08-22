@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { useRouter } from "next/navigation"
 
 type Metrics = {
   total_quotes: number
@@ -22,8 +24,54 @@ export default function AdminDashboard() {
   const [data, setData] = useState<Metrics | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const supabase = createSupabaseClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
+
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession()
+
+        if (error || !session) {
+          console.log("[v0] No valid session, redirecting to login")
+          router.push("/admin/login")
+          return
+        }
+
+        const userRole = session.user.user_metadata?.role || session.user.app_metadata?.role
+        const allowedRoles = ["admin", "superuser"]
+
+        if (!allowedRoles.includes(userRole)) {
+          console.log("[v0] Invalid role:", userRole)
+          router.push("/admin/login?error=Access denied")
+          return
+        }
+
+        console.log("[v0] Authentication successful, role:", userRole)
+        setIsAuthenticated(true)
+      } catch (error) {
+        console.error("[v0] Auth check error:", error)
+        router.push("/admin/login")
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
     const load = async () => {
       setLoading(true)
       const res = await fetch("/api/admin/metrics", { cache: "no-store" })
@@ -37,7 +85,19 @@ export default function AdminDashboard() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [isAuthenticated])
+
+  if (authLoading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Checking authentication...</div>
+      </main>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
+  }
 
   return (
     <main className="min-h-screen p-6 max-w-6xl mx-auto space-y-6">

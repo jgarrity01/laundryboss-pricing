@@ -1,12 +1,5 @@
 "use client"
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Info, CreditCard, BarChart3 } from "lucide-react"
 import { pricingData, calculateInstallationCost, calculateQRCodeCost, calculatePOSSystemCost } from "@/lib/pricing-data"
 import type { QuestionnaireData } from "./questionnaire"
 
@@ -19,6 +12,9 @@ interface PricingCalculatorProps {
 export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculatorProps) {
   const [interestRate, setInterestRate] = useState(9)
   const [showFinanceDetails, setShowFinanceDetails] = useState(false)
+  const [showDistributorDetails, setShowDistributorDetails] = useState(false)
+  const [showCleanShowDetails, setShowCleanShowDetails] = useState(false)
+  const [showOption3Details, setShowOption3Details] = useState(false)
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -66,7 +62,7 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
     return payment
   }
 
-  const calculatePricing = () => {
+  const calculatePricing = (applySpecialDiscount = false) => {
     let monthlyRecurring = 0
     let oneTimeCharges = 0
 
@@ -78,8 +74,8 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
     let aiAttendantPrice = pricingData.monthlyRecurring.aiAttendant.price
     let aiIntegrationPrice = pricingData.monthlyRecurring.aiAttendantWithIntegration.price
 
-    // Apply 20% discount to monthly services for distributors
-    if (isDistributor) {
+    // Apply 20% discount to monthly services for distributors or Clean Show 2025 special pricing
+    if (isDistributor || applySpecialDiscount) {
       washerPrice *= 0.8
       dryerPrice *= 0.8
       wdfPrice *= 0.8
@@ -127,8 +123,8 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
     oneTimeCharges += pricingData.oneTimeCharges.fullNetworkPackage.price
 
-    // Kiosk options with 30% discount for distributors
-    const kioskDiscount = isDistributor ? 0.7 : 1.0
+    // Kiosk options with 30% discount for distributors or Clean Show 2025 special pricing
+    const kioskDiscount = isDistributor || applySpecialDiscount ? 0.7 : 1.0
 
     if (data.kioskOptions.rearLoad.selected) {
       oneTimeCharges +=
@@ -152,6 +148,8 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
   const { monthlyRecurring, oneTimeCharges, installationCost, qrCodeInfo, posSystemCost } = calculatePricing()
 
+  const cleanShowPricing = calculatePricing(true)
+
   // Option calculations (only for non-distributors)
   const monthlyTotal48 = monthlyRecurring * 48 // Gross total over 48 months
   const monthlyPV = calculatePresentValue(monthlyRecurring) // Present value of monthly payments
@@ -164,6 +162,8 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
   // Distributor total price (monthly × 48 + one-time)
   const distributorTotalPrice = monthlyRecurring * 48 + oneTimeCharges
 
+  const cleanShowTotalPrice = cleanShowPricing.monthlyRecurring * 48 + cleanShowPricing.oneTimeCharges
+
   const getSelectedKiosks = () => {
     const kiosks = []
     if (data.kioskOptions.rearLoad.selected) {
@@ -173,30 +173,88 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
       kiosks.push(`${data.kioskOptions.frontLoad.quantity} Front Load`)
     }
     if (data.kioskOptions.creditBill.selected) {
-      kiosks.push(`${data.kioskOptions.creditBill.quantity} EBT`)
+      kiosks.push(`${data.kioskOptions.creditBill.quantity} Credit Bill`)
     }
     if (data.kioskOptions.creditOnly.selected) {
-      kiosks.push(`${data.kioskOptions.creditOnly.quantity} Credit Card Only`)
+      kiosks.push(`${data.kioskOptions.creditOnly.quantity} Credit Only`)
     }
-    return kiosks.length > 0 ? kiosks.join(", ") : "None"
+    return kiosks
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Revenue Impact Overview - New top section */}
-      <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-        <CardHeader className="text-center">
-          <CardTitle className="text-cyan-700 text-3xl md:text-4xl font-bold">Revenue Impact Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
+    <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div className="text-center space-y-4">
+        <h2 className="text-3xl font-bold text-gray-900">Your Laundry Boss Quote</h2>
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <p className="text-sm text-gray-600">
+            <strong>Customer:</strong> {data.ownerName} | <strong>Business:</strong> {data.prospectName}
+          </p>
+          <p className="text-sm text-gray-600">
+            <strong>Email:</strong> {data.customerEmail} | <strong>Phone:</strong> {data.customerPhone}
+          </p>
+          <p className="text-sm text-gray-600">
+            <strong>Configuration:</strong> {data.numWashers} Washers, {data.numDryers} Dryers
+            {data.wantsWashDryFold && " | Wash-Dry-Fold"}
+            {data.wantsPickupDelivery && " | Pickup & Delivery"}
+            {getSelectedKiosks().length > 0 && ` | Kiosks: ${getSelectedKiosks().join(", ")}`}
+          </p>
+        </div>
+      </div>
+
+      {/* Revenue Projections */}
+      <div className="text-center">
+        <h3 className="text-2xl font-semibold text-green-800 mb-6">📈 Revenue Growth Projections</h3>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <h4 className="font-medium text-green-700 mb-4">Current Revenue</h4>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">Weekly: {formatCurrency(monthlyRevenueBaseline / weeksPerMonth)}</p>
+              <p className="text-sm text-gray-600">Monthly: {formatCurrency(monthlyRevenueBaseline)}</p>
+              <p className="text-sm text-gray-600">Annual: {formatCurrency(monthlyRevenueBaseline * 12)}</p>
+            </div>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <h4 className="font-medium text-green-700 mb-4">Projected with Laundry Boss</h4>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">Weekly: {formatCurrency(projectedWeeklyAfterLB)}</p>
+              <p className="text-sm text-gray-600">Monthly: {formatCurrency(projectedMonthlyAfterLB)}</p>
+              <p className="text-sm text-gray-600">Annual: {formatCurrency(projectedAnnualAfterLB)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-green-100 border border-green-300 rounded-lg p-6">
+            <h4 className="font-semibold text-green-800 mb-3">💰 Additional Revenue</h4>
+            <div className="space-y-2">
+              <p className="text-green-800 font-medium">{formatCurrency(addedWeeklyRevenue)}/week</p>
+              <p className="text-green-800 font-medium">{formatCurrency(addedMonthlyRevenue)}/month</p>
+              <p className="text-green-800 font-medium">{formatCurrency(addedAnnualRevenue)}/year</p>
+            </div>
+            <p className="text-xs text-green-700 mt-3">Based on 15.3% average increase in first ~90 days</p>
+          </div>
+          <div className="bg-green-100 border border-green-300 rounded-lg p-6">
+            <h4 className="font-semibold text-green-800 mb-3">🔧 Operational Savings</h4>
+            <div className="space-y-2">
+              <p className="text-green-800 font-medium">{formatCurrency(weeklyOperationalSavings)}/week</p>
+              <p className="text-green-800 font-medium">{formatCurrency(monthlyOperationalSavings)}/month</p>
+              <p className="text-green-800 font-medium">{formatCurrency(annualOperationalSavings)}/year</p>
+            </div>
+            <p className="text-xs text-green-700 mt-3">
+              Reduced wear and tear from embedded readers. Laundry Boss systems typically reduce maintenance costs and
+              extend equipment life through smart monitoring and preventive alerts.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 p-6 bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-lg">
+          <h4 className="text-xl font-semibold text-cyan-800 mb-4">Revenue Impact Overview</h4>
           <div className="text-center">
-            <div className="text-sm text-gray-600">Owner-Reported Monthly Revenue</div>
-            <div className="text-3xl md:text-4xl font-bold">
+            <div className="text-sm text-gray-600 mb-2">Owner-Reported Monthly Revenue</div>
+            <div className="text-2xl font-bold mb-4">
               {monthlyRevenueBaseline > 0 ? formatCurrency(monthlyRevenueBaseline) : "Not provided"}
             </div>
-            {monthlyRevenueBaseline <= 0 && (
-              <p className="text-xs text-gray-500 mt-1">Enter monthly revenue in the form to see projections.</p>
-            )}
           </div>
 
           <div className="overflow-hidden rounded-lg border">
@@ -218,660 +276,676 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
                 <div className="px-4 py-3 text-center">{formatCurrency(monthlyRevenueBaseline || 0)}</div>
                 <div className="px-4 py-3 text-center">{formatCurrency(projectedMonthlyAfterLB || 0)}</div>
               </div>
-              <div className="grid grid-cols-3 text-sm">
-                <div className="px-4 py-3">Annual</div>
-                <div className="px-4 py-3 text-center">{formatCurrency((monthlyRevenueBaseline || 0) * 12)}</div>
+              <div className="grid grid-cols-3 text-sm bg-cyan-50 font-semibold">
+                <div className="px-4 py-3">Annual Revenue After LB</div>
+                <div className="px-4 py-3 text-center">—</div>
                 <div className="px-4 py-3 text-center">{formatCurrency(projectedAnnualAfterLB || 0)}</div>
               </div>
             </div>
-            <div className="grid grid-cols-3 bg-cyan-50 text-sm font-semibold">
-              <div className="px-4 py-3">Added Revenue</div>
-              <div className="px-4 py-3 text-center">—</div>
-              <div className="px-4 py-3 text-center">{formatCurrency(addedAnnualRevenue || 0)}</div>
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 bg-green-200 rounded-lg">
+          <h5 className="font-semibold text-green-800 mb-2">Why Laundry Boss is a Perfect Fit:</h5>
+          <ul className="text-sm text-green-700 space-y-1">
+            <li>• Proven track record of 15.3% average revenue increase</li>
+            <li>• Smart monitoring reduces equipment downtime</li>
+            <li>• Enhanced customer experience drives repeat business</li>
+            <li>• Real-time analytics help optimize operations</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Pricing Options */}
+      <div className="space-y-6">
+        {!isDistributor && (
+          <>
+            {/* Option 1: Total Price */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Option 1: Total Price</h3>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-blue-600">{formatCurrency(totalPrice)}</p>
+                  <p className="text-sm text-gray-500">One-time payment</p>
+                </div>
+              </div>
+              <p className="text-gray-600">Pay the full amount upfront and own your Laundry Boss system immediately.</p>
             </div>
-          </div>
 
-          <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
-            Revenue increase estimates apply primarily to cash and coin-only laundromats transitioning to Laundry Boss.
-            Actual results may vary by location and operations.
-          </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-blue-700 text-base">Additional Operational Savings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Weekly</span>
-                  <span className="font-semibold">{formatCurrency(weeklyOperationalSavings || 0)}</span>
+            {/* Option 2: Financed Solution */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Option 2: Financed Solution</h3>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-green-600">{formatCurrency(financedMonthlyPayment)}</p>
+                  <p className="text-sm text-gray-500">per month for 48 months</p>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Monthly</span>
-                  <span className="font-semibold">{formatCurrency(monthlyOperationalSavings || 0)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Annual</span>
-                  <span className="font-semibold">{formatCurrency(annualOperationalSavings || 0)}</span>
-                </div>
-                <p className="text-xs text-gray-600 mt-3">
-                  Assumption: Embedded readers reduce wear on coin mechs and external readers. Estimated{" "}
-                  {formatCurrency(5500)} per year at 30 machines (~{formatCurrency(perMachineAnnualSavings)} per
-                  machine/year). Calculated above for your {totalMachines} machines.
-                </p>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="space-y-4">
+                <p className="text-gray-600">Finance your Laundry Boss system with our competitive rates.</p>
 
-            <Card className="bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200">
-              <CardHeader>
-                <CardTitle className="text-blue-700 text-base flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Laundry Boss Features
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <CreditCard className="h-5 w-5 text-cyan-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-sm" style={{ color: "#2D2926" }}>
-                        EMV/EBT Capable Payment System
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        Accept all major payment methods including EBT/SNAP benefits
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-800 mb-3">What's Being Financed:</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Present Value of Monthly Services (48 months)</span>
+                      <span>{formatCurrency(monthlyPV)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>One-Time Setup Charges</span>
+                      <span>{formatCurrency(oneTimeCharges)}</span>
+                    </div>
+                    <div className="border-t pt-2 font-semibold flex justify-between">
+                      <span>Total Amount Financed</span>
+                      <span>{formatCurrency(totalToFinance)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  <label className="text-sm font-medium text-gray-700">Interest Rate:</label>
+                  <input
+                    type="range"
+                    min="6"
+                    max="15"
+                    step="0.5"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(Number(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className="text-sm font-medium text-gray-900">{interestRate}%</span>
+                </div>
+
+                <button
+                  onClick={() => setShowFinanceDetails(!showFinanceDetails)}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  {showFinanceDetails ? "Hide" : "Show"} Financing Details
+                </button>
+                {showFinanceDetails && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg text-sm">
+                    <div className="space-y-2">
+                      <p>
+                        <strong>Amount to Finance:</strong> {formatCurrency(totalToFinance)}
+                      </p>
+                      <p>
+                        <strong>Interest Rate:</strong> {interestRate}%
+                      </p>
+                      <p>
+                        <strong>Term:</strong> 48 months
+                      </p>
+                      <p>
+                        <strong>Monthly Payment:</strong> {formatCurrency(financedMonthlyPayment)}
+                      </p>
+                      <p>
+                        <strong>Total of Payments:</strong> {formatCurrency(financedMonthlyPayment * 48)}
+                      </p>
+                      <p>
+                        <strong>Total Interest:</strong> {formatCurrency(financedMonthlyPayment * 48 - totalToFinance)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <BarChart3 className="h-5 w-5 text-cyan-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-sm" style={{ color: "#2D2926" }}>
-                        Advanced Data Analytics
+                )}
+              </div>
+            </div>
+
+            {/* Option 3: Monthly Payment Plan */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Option 3: Monthly Payment Plan</h3>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-purple-600">{formatCurrency(monthlyRecurring)}</p>
+                  <p className="text-sm text-gray-500">per month + one-time setup</p>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Low monthly payments with our comprehensive service package. Perfect for cash flow management.
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-4">
+                {/* Monthly Recurring Fees */}
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-800 mb-3">Monthly Recurring Fees</h4>
+                  <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>
+                        Washers ({data.numWashers} × {formatCurrency(pricingData.monthlyRecurring.washers.price)})
+                      </span>
+                      <span>{formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>
+                        Dryers ({data.numDryers} × {formatCurrency(pricingData.monthlyRecurring.dryers.price)})
+                      </span>
+                      <span>{formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price)}</span>
+                    </div>
+                    {data.wantsWashDryFold && (
+                      <div className="flex justify-between">
+                        <span>WDF Software License</span>
+                        <span>{formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)}</span>
                       </div>
-                      <p className="text-xs text-gray-600">
-                        Real-time insights into revenue, usage patterns, and customer behavior
+                    )}
+                    {data.wantsPickupDelivery && (
+                      <div className="flex justify-between">
+                        <span>Pick Up & Delivery License</span>
+                        <span>{formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)}</span>
+                      </div>
+                    )}
+                    {data.hasAiAttendantWithIntegration && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>AI Attendant Service</span>
+                          <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AI Integration Service</span>
+                          <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price)}</span>
+                        </div>
+                      </>
+                    )}
+                    {data.hasAiAttendant && !data.hasAiAttendantWithIntegration && (
+                      <div className="flex justify-between">
+                        <span>AI Attendant Service</span>
+                        <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}</span>
+                      </div>
+                    )}
+                    <div className="border-t pt-1 font-semibold flex justify-between">
+                      <span>Monthly Total</span>
+                      <span>{formatCurrency(monthlyRecurring)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* One-Time Charges */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">One-Time Charges</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Harnesses ({data.numWashers + data.numDryers} × $25.00)</span>
+                      <span>{formatCurrency((data.numWashers + data.numDryers) * 25)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>
+                        QR Codes ({qrCodeInfo.quantity} × {formatCurrency(qrCodeInfo.pricePerCode)})
+                      </span>
+                      <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Sign Package</span>
+                      <span>{formatCurrency(pricingData.oneTimeCharges.signPackage.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Matterport 3D Scan</span>
+                      <span>{formatCurrency(pricingData.oneTimeCharges.matterport3D.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>FULL Network Package</span>
+                      <span>{formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Laundry Boss Point of Sale System</span>
+                      <span>{formatCurrency(posSystemCost)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Laundry Boss Installation</span>
+                      <span>{formatCurrency(installationCost)}</span>
+                    </div>
+                    {data.selfInstall && (
+                      <p className="text-xs text-green-600 italic">
+                        Self-install with assistance ({data.numWashers + data.numDryers} machines)
                       </p>
+                    )}
+                    {!data.selfInstall && (
+                      <p className="text-xs text-green-600 italic">
+                        Full installation service ({data.numWashers + data.numDryers} machines)
+                      </p>
+                    )}
+                    {getSelectedKiosks().length > 0 && (
+                      <div className="space-y-1">
+                        {data.kioskOptions.rearLoad.selected && (
+                          <div className="flex justify-between">
+                            <span>Rear Load Kiosks ({data.kioskOptions.rearLoad.quantity})</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.rearLoadKiosk.price * data.kioskOptions.rearLoad.quantity,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {data.kioskOptions.frontLoad.selected && (
+                          <div className="flex justify-between">
+                            <span>Front Load Kiosks ({data.kioskOptions.frontLoad.quantity})</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.frontLoadKiosk.price * data.kioskOptions.frontLoad.quantity,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {data.kioskOptions.creditBill.selected && (
+                          <div className="flex justify-between">
+                            <span>Credit Bill Kiosks ({data.kioskOptions.creditBill.quantity})</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.creditBillKiosk.price * data.kioskOptions.creditBill.quantity,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {data.kioskOptions.creditOnly.selected && (
+                          <div className="flex justify-between">
+                            <span>Credit Only Kiosks ({data.kioskOptions.creditOnly.quantity})</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.creditOnlyKiosk.price * data.kioskOptions.creditOnly.quantity,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="border-t pt-1 font-semibold flex justify-between">
+                      <span>One-Time Total</span>
+                      <span>{formatCurrency(oneTimeCharges)}</span>
                     </div>
                   </div>
                 </div>
-                <div className="pt-2 border-t border-cyan-200">
-                  <p className="text-xs font-medium" style={{ color: "#005587" }}>
-                    Plus: Mobile app integration, remote monitoring, automated reporting, and 24/7 customer support
-                  </p>
+              </div>
+
+              <button
+                onClick={() => setShowOption3Details(!showOption3Details)}
+                className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+              >
+                {showOption3Details ? "Hide" : "Show"} Pricing Details
+              </button>
+              {showOption3Details && (
+                <div className="mt-4 p-4 bg-purple-50 rounded-lg text-sm">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <h5 className="font-medium text-purple-800 mb-2">Monthly Services</h5>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span>Washers ({data.numWashers})</span>
+                          <span>{formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Dryers ({data.numDryers})</span>
+                          <span>{formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price)}</span>
+                        </div>
+                        {data.wantsWashDryFold && (
+                          <div className="flex justify-between">
+                            <span>WDF Software</span>
+                            <span>{formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)}</span>
+                          </div>
+                        )}
+                        {data.wantsPickupDelivery && (
+                          <div className="flex justify-between">
+                            <span>Pickup & Delivery</span>
+                            <span>{formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)}</span>
+                          </div>
+                        )}
+                        {data.hasAiAttendant && (
+                          <div className="flex justify-between">
+                            <span>AI Attendant</span>
+                            <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}</span>
+                          </div>
+                        )}
+                        {data.hasAiAttendantWithIntegration && (
+                          <div className="flex justify-between">
+                            <span>AI Integration</span>
+                            <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-purple-800 mb-2">One-Time Charges</h5>
+                      <div className="space-y-1">
+                        <div className="text-xs">
+                          Harnesses: {formatCurrency((data.numWashers + data.numDryers) * 25)}
+                        </div>
+                        <div className="text-xs">QR Codes: {formatCurrency(qrCodeInfo.totalCost)}</div>
+                        <div className="text-xs">Installation: {formatCurrency(installationCost)}</div>
+                        <div className="text-xs">
+                          Network Package: {formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}
+                        </div>
+                        {posSystemCost > 0 && (
+                          <div className="text-xs">POS System: {formatCurrency(posSystemCost)}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-purple-100 rounded">
+                    <p className="text-purple-800 font-medium">💰 Total System Cost: {formatCurrency(totalPrice)}</p>
+                    <p className="text-xs text-purple-700">
+                      Monthly: {formatCurrency(monthlyRecurring * 48)} | One-time: {formatCurrency(oneTimeCharges)}
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </CardContent>
-      </Card>
+              )}
+            </div>
+          </>
+        )}
 
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl md:text-4xl">
-            {isDistributor
-              ? `Distributor Pricing Quote for ${data.prospectName}`
-              : `Pricing Quote for ${data.prospectName}`}
-          </CardTitle>
-          {isDistributor && (
-            <p className="text-sm text-blue-600 font-medium">
-              Distributor: {data.distributorName} • Special pricing applied: 30% off kiosks, 20% off monthly services
-            </p>
-          )}
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <p>
-                <strong>Owner:</strong> {data.ownerName}
-              </p>
-              <p>
-                <strong>Store Size:</strong> {data.storeSize.toLocaleString()} sq ft
-              </p>
-              <p>
-                <strong>Total Machines:</strong> {totalMachines} ({data.numWashers} washers, {data.numDryers} dryers)
-              </p>
-              <p>
-                <strong>Reported Monthly Revenue:</strong>{" "}
-                {monthlyRevenueBaseline > 0 ? formatCurrency(monthlyRevenueBaseline) : "Not provided"}
-              </p>
+        {/* Distributor Pricing */}
+        {isDistributor && (
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-orange-800">🏆 Distributor Pricing</h3>
+                <p className="text-sm text-orange-600">Exclusive pricing for {data.distributorName}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-orange-600">{formatCurrency(distributorTotalPrice)}</p>
+                <p className="text-sm text-gray-500">Total system cost</p>
+              </div>
             </div>
             <div className="space-y-2">
-              <p>
-                <strong>Payment Methods:</strong>{" "}
-                {[data.acceptsCash && "Cash", data.acceptsCards && "Cards"].filter(Boolean).join(", ") ||
-                  "None specified"}
+              <p className="text-gray-700">
+                Special distributor pricing with 20% discount on monthly services and 30% discount on kiosks.
               </p>
-              <p>
-                <strong>Services:</strong>{" "}
-                {[
-                  data.hasWashDryFold && `Current WDF (${data.wdfProvider})`,
-                  data.wantsWashDryFold && "Laundry Boss Wash Dry Fold",
-                  data.wantsPickupDelivery && "Laundry Boss Pickup & Delivery",
-                  data.hasAiAttendantWithIntegration && "AI Attendant with Integration",
-                  data.hasAiAttendant && !data.hasAiAttendantWithIntegration && "AI Attendant",
-                ]
-                  .filter(Boolean)
-                  .join(", ") || "Self-service only"}
-              </p>
-              <p>
-                <strong>Kiosks:</strong> {getSelectedKiosks()}
-              </p>
+              <button
+                onClick={() => setShowDistributorDetails(!showDistributorDetails)}
+                className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+              >
+                {showDistributorDetails ? "Hide" : "Show"} Pricing Details
+              </button>
+              {showDistributorDetails && (
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg text-sm">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <h5 className="font-medium text-orange-800 mb-2">Monthly Services (20% Discount)</h5>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span>
+                            Washers: {formatCurrency(pricingData.monthlyRecurring.washers.price)} →{" "}
+                            {formatCurrency(pricingData.monthlyRecurring.washers.price * 0.8)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>
+                            Dryers: {formatCurrency(pricingData.monthlyRecurring.dryers.price)} →{" "}
+                            {formatCurrency(pricingData.monthlyRecurring.dryers.price * 0.8)}
+                          </span>
+                        </div>
+                        {data.wantsWashDryFold && (
+                          <div className="flex justify-between">
+                            <span>
+                              WDF: {formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)} →{" "}
+                              {formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price * 0.8)}
+                            </span>
+                          </div>
+                        )}
+                        {data.wantsPickupDelivery && (
+                          <div className="flex justify-between">
+                            <span>
+                              P&D: {formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)} →{" "}
+                              {formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price * 0.8)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-orange-800 mb-2">Kiosk Pricing (30% Discount)</h5>
+                      <div className="space-y-1">
+                        {getSelectedKiosks().length > 0 ? (
+                          <>
+                            {data.kioskOptions.rearLoad.selected && (
+                              <div className="text-xs">
+                                Rear Load: {formatCurrency(pricingData.kioskOptions.rearLoadKiosk.price)} →{" "}
+                                {formatCurrency(pricingData.kioskOptions.rearLoadKiosk.price * 0.7)}
+                              </div>
+                            )}
+                            {data.kioskOptions.frontLoad.selected && (
+                              <div className="text-xs">
+                                Front Load: {formatCurrency(pricingData.kioskOptions.frontLoadKiosk.price)} →{" "}
+                                {formatCurrency(pricingData.kioskOptions.frontLoadKiosk.price * 0.7)}
+                              </div>
+                            )}
+                            {data.kioskOptions.creditBill.selected && (
+                              <div className="text-xs">
+                                Credit Bill: {formatCurrency(pricingData.kioskOptions.creditBillKiosk.price)} →{" "}
+                                {formatCurrency(pricingData.kioskOptions.creditBillKiosk.price * 0.7)}
+                              </div>
+                            )}
+                            {data.kioskOptions.creditOnly.selected && (
+                              <div className="text-xs">
+                                Credit Only: {formatCurrency(pricingData.kioskOptions.creditOnlyKiosk.price)} →{" "}
+                                {formatCurrency(pricingData.kioskOptions.creditOnlyKiosk.price * 0.7)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-gray-500">No kiosks selected</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-orange-100 rounded">
+                    <p className="text-orange-800 font-medium">
+                      💰 Total Savings: {formatCurrency(totalPrice - distributorTotalPrice)}
+                    </p>
+                    <p className="text-xs text-orange-700">
+                      Monthly: {formatCurrency(monthlyRecurring * 48)} → {formatCurrency(monthlyRecurring * 48)} |
+                      One-time: {formatCurrency(oneTimeCharges)} → {formatCurrency(oneTimeCharges)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      {isDistributor ? (
-        // Distributor pricing - single option
-        <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
-          <CardHeader>
-            <CardTitle className="text-purple-700">Distributor Total Price</CardTitle>
-            <p className="text-sm text-gray-600">One-time payment includes 48 months of service + setup costs</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-green-600 text-lg">Monthly Services (48 months)</CardTitle>
-                  <p className="text-sm text-gray-600">20% distributor discount applied</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span>
-                      Washers ({data.numWashers} × ${(pricingData.monthlyRecurring.washers.price * 0.8).toFixed(2)})
-                    </span>
-                    <span>{formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price * 0.8)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>
-                      Dryers ({data.numDryers} × ${(pricingData.monthlyRecurring.dryers.price * 0.8).toFixed(2)})
-                    </span>
-                    <span>{formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price * 0.8)}</span>
-                  </div>
-                  {data.wantsWashDryFold && (
+        {/* Option 4: Clean Show 2025 Special Pricing (for non-distributors only) */}
+        {!isDistributor && (
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-purple-800">🎉 Option 4: Clean Show 2025 Special Pricing</h3>
+                <p className="text-sm text-purple-600">Limited-time exclusive offer</p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-purple-600">{formatCurrency(cleanShowTotalPrice)}</p>
+                <p className="text-sm text-gray-500">Total system cost</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Get the same exclusive pricing as our distributors! 20% discount on monthly services and 30% discount on
+                kiosks.
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Monthly Services with Clean Show Pricing */}
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-800 mb-3">Monthly Services (20% Discount)</h4>
+                  <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
+                  <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span>WDF Software License</span>
-                      <span>{formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price * 0.8)}</span>
+                      <span>
+                        Washers ({data.numWashers} × {formatCurrency(pricingData.monthlyRecurring.washers.price * 0.8)})
+                      </span>
+                      <span>{formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price * 0.8)}</span>
                     </div>
-                  )}
-                  {data.wantsPickupDelivery && (
                     <div className="flex justify-between">
-                      <span>Pick Up & Delivery License</span>
-                      <span>{formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price * 0.8)}</span>
+                      <span>
+                        Dryers ({data.numDryers} × {formatCurrency(pricingData.monthlyRecurring.dryers.price * 0.8)})
+                      </span>
+                      <span>{formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price * 0.8)}</span>
                     </div>
-                  )}
-                  {data.hasAiAttendantWithIntegration && (
-                    <>
+                    {data.wantsWashDryFold && (
+                      <div className="flex justify-between">
+                        <span>WDF Software License</span>
+                        <span>{formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price * 0.8)}</span>
+                      </div>
+                    )}
+                    {data.wantsPickupDelivery && (
+                      <div className="flex justify-between">
+                        <span>Pick Up & Delivery License</span>
+                        <span>{formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price * 0.8)}</span>
+                      </div>
+                    )}
+                    {data.hasAiAttendantWithIntegration && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>AI Attendant Service</span>
+                          <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price * 0.8)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>AI Integration Service</span>
+                          <span>
+                            {formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price * 0.8)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {data.hasAiAttendant && !data.hasAiAttendantWithIntegration && (
                       <div className="flex justify-between">
                         <span>AI Attendant Service</span>
                         <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price * 0.8)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>AI Integration Service</span>
-                        <span>
-                          {formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price * 0.8)}
-                        </span>
+                    )}
+                    <div className="border-t pt-1 font-semibold flex justify-between">
+                      <span>Monthly Total</span>
+                      <span>{formatCurrency(cleanShowPricing.monthlyRecurring)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* One-Time Charges with Clean Show Pricing */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">One-Time Charges</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>
+                        QR Codes ({qrCodeInfo.quantity} × {formatCurrency(qrCodeInfo.pricePerCode)})
+                      </span>
+                      <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Sign Package</span>
+                      <span>{formatCurrency(pricingData.oneTimeCharges.signPackage.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Matterport 3D Scan</span>
+                      <span>{formatCurrency(pricingData.oneTimeCharges.matterport3D.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>FULL Network Package</span>
+                      <span>{formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Laundry Boss Point of Sale System</span>
+                      <span>{formatCurrency(posSystemCost)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Laundry Boss Installation</span>
+                      <span>{formatCurrency(installationCost)}</span>
+                    </div>
+                    {data.selfInstall && (
+                      <p className="text-xs text-green-600 italic">
+                        Full installation service ({data.numWashers + data.numDryers} machines)
+                      </p>
+                    )}
+                    {getSelectedKiosks().length > 0 && (
+                      <div className="space-y-1">
+                        {data.kioskOptions.rearLoad.selected && (
+                          <div className="flex justify-between">
+                            <span>Rear Load Kiosks ({data.kioskOptions.rearLoad.quantity}) - 30% off</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.rearLoadKiosk.price *
+                                  data.kioskOptions.rearLoad.quantity *
+                                  0.7,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {data.kioskOptions.frontLoad.selected && (
+                          <div className="flex justify-between">
+                            <span>Front Load Kiosks ({data.kioskOptions.frontLoad.quantity}) - 30% off</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.frontLoadKiosk.price *
+                                  data.kioskOptions.frontLoad.quantity *
+                                  0.7,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {data.kioskOptions.creditBill.selected && (
+                          <div className="flex justify-between">
+                            <span>Credit Bill Kiosks ({data.kioskOptions.creditBill.quantity}) - 30% off</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.creditBillKiosk.price *
+                                  data.kioskOptions.creditBill.quantity *
+                                  0.7,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        {data.kioskOptions.creditOnly.selected && (
+                          <div className="flex justify-between">
+                            <span>Credit Only Kiosks ({data.kioskOptions.creditOnly.quantity}) - 30% off</span>
+                            <span>
+                              {formatCurrency(
+                                pricingData.kioskOptions.creditOnlyKiosk.price *
+                                  data.kioskOptions.creditOnly.quantity *
+                                  0.7,
+                              )}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    </>
-                  )}
-                  {data.hasAiAttendant && !data.hasAiAttendantWithIntegration && (
-                    <div className="flex justify-between">
-                      <span>AI Attendant Service</span>
-                      <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price * 0.8)}</span>
+                    )}
+                    <div className="border-t pt-1 font-semibold flex justify-between">
+                      <span>One-Time Total</span>
+                      <span>{formatCurrency(cleanShowPricing.oneTimeCharges)}</span>
                     </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between font-semibold">
-                    <span>Equipment, Service, and Warranty for 48 months</span>
-                    <span className="text-green-600">{formatCurrency(monthlyRecurring * 48)}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-blue-600 text-lg">One-Time Setup Costs</CardTitle>
-                  <p className="text-sm text-gray-600">30% discount on kiosks</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span>Harnesses ({totalMachines} × $25.00)</span>
-                    <span>{formatCurrency(totalMachines * 25)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>QR Codes ({qrCodeInfo.sheets} × $110.00)</span>
-                    <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sign Package</span>
-                    <span>{formatCurrency(140)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Matterport 3D Scan</span>
-                    <span>{formatCurrency(350)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>FULL Network Package</span>
-                    <span>{formatCurrency(1875)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Laundry Boss Installation</span>
-                    <span>{formatCurrency(installationCost)}</span>
-                  </div>
-                  {data.kioskOptions.rearLoad.selected && (
-                    <div className="flex justify-between">
-                      <span>Rear Load Kiosk ({data.kioskOptions.rearLoad.quantity}) - 30% off</span>
-                      <span>
-                        {formatCurrency(
-                          pricingData.kioskOptions.rearLoadKiosk.price * data.kioskOptions.rearLoad.quantity * 0.7,
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {data.kioskOptions.frontLoad.selected && (
-                    <div className="flex justify-between">
-                      <span>Front Load Kiosk ({data.kioskOptions.frontLoad.quantity}) - 30% off</span>
-                      <span>
-                        {formatCurrency(
-                          pricingData.kioskOptions.frontLoadKiosk.price * data.kioskOptions.frontLoad.quantity * 0.7,
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {data.kioskOptions.creditBill.selected && (
-                    <div className="flex justify-between">
-                      <span>EBT Kiosk ({data.kioskOptions.creditBill.quantity}) - 30% off</span>
-                      <span>
-                        {formatCurrency(
-                          pricingData.kioskOptions.creditBillKiosk.price * data.kioskOptions.creditBill.quantity * 0.7,
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {data.kioskOptions.creditOnly.selected && (
-                    <div className="flex justify-between">
-                      <span>Credit Card Only Kiosk ({data.kioskOptions.creditOnly.quantity}) - 30% off</span>
-                      <span>
-                        {formatCurrency(
-                          pricingData.kioskOptions.creditOnlyKiosk.price * data.kioskOptions.creditOnly.quantity * 0.7,
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between font-semibold">
-                    <span>Setup Total</span>
-                    <span className="text-blue-600">{formatCurrency(oneTimeCharges)}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="text-center space-y-4 pt-4">
-              <div className="bg-white rounded-lg p-6 border-2 border-purple-200">
-                <p className="text-purple-600 font-semibold text-lg mb-2">Total Distributor Price</p>
-                <p className="text-5xl font-bold text-purple-600 mb-2">{formatCurrency(distributorTotalPrice)}</p>
-                <p className="text-sm text-gray-600">One-time payment • No financing required</p>
-                <div className="mt-4 text-sm text-gray-600">
-                  <p>Includes: 48 months of service + all setup costs</p>
-                  <p>Savings: 30% off kiosks, 20% off monthly services</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        // Regular customer pricing - three options
-        <>
-          <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-            <CardHeader>
-              <CardTitle className="text-cyan-700">Option 1: Total Price</CardTitle>
-              <p className="text-sm text-gray-600">One-time payment for complete solution</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-700">48 Months of Service & Equipment Warranty</h4>
-                  <div className="flex justify-between text-sm">
-                    <span>Monthly recurring × 48 months</span>
-                    <span>{formatCurrency(monthlyTotal48)}</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-700">One-Time Setup Costs</h4>
-                  <div className="flex justify-between text-sm">
-                    <span>All setup and installation costs</span>
-                    <span>{formatCurrency(oneTimeCharges)}</span>
-                  </div>
-                </div>
-              </div>
-              <Separator />
-              <div className="text-center space-y-4">
-                <div className="bg-white rounded-lg p-6 border-2 border-cyan-200">
-                  <p className="text-cyan-600 font-semibold text-lg mb-2">Total Price</p>
-                  <p className="text-5xl font-bold text-cyan-600 mb-2">{formatCurrency(totalPrice)}</p>
-                  <p className="text-sm text-gray-600">One-time payment • No monthly fees</p>
-                  <div className="mt-4 text-sm text-gray-600">
-                    <p>Includes: Complete 48-month solution + all setup costs</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-            <CardHeader>
-              <CardTitle className="text-blue-700">Option 2: Financed Solution</CardTitle>
-              <div className="flex items-center gap-4 mt-2">
-                <p className="text-sm text-gray-600">Finance all costs over 48 months</p>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="interestRate" className="text-sm">
-                    Interest Rate:
-                  </Label>
-                  <Input
-                    id="interestRate"
-                    type="number"
-                    min="0"
-                    max="30"
-                    step="0.1"
-                    value={interestRate}
-                    onChange={(e) => setInterestRate(Number(e.target.value) || 9)}
-                    className="w-20 h-8"
-                  />
-                  <span className="text-sm">% APR</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Main financing result - always visible */}
-              <div className="text-center space-y-4">
-                <div>
-                  <p className="text-blue-600 font-semibold text-lg">Financed Monthly Payment</p>
-                  <p className="text-4xl font-bold text-blue-600">{formatCurrency(financedMonthlyPayment)}</p>
-                  <p className="text-sm text-gray-600">per month for 48 months at {interestRate}% APR</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                  <div>
-                    <p>
-                      <strong>Total of payments:</strong> {formatCurrency(financedMonthlyPayment * 48)}
-                    </p>
-                  </div>
-                  <div>
-                    <p>
-                      <strong>Total interest:</strong> {formatCurrency(financedMonthlyPayment * 48 - totalToFinance)}
-                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Expandable details section */}
-              <div className="border-t pt-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowFinanceDetails(!showFinanceDetails)}
-                  className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700"
-                >
-                  {showFinanceDetails ? "Hide" : "Show"} Calculation Details
-                  {showFinanceDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-
-                {showFinanceDetails && (
-                  <div className="mt-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-gray-700">Monthly Services Calculation</h4>
-                        <div className="flex justify-between text-sm">
-                          <span>Monthly recurring × 48 months</span>
-                          <span>{formatCurrency(monthlyTotal48)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm items-center">
-                          <span className="flex items-center gap-1">
-                            Present value (discounted)
-                            <div className="group relative">
-                              <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
-                                <div className="text-center">
-                                  <strong>Present Value Explained:</strong>
-                                  <br />
-                                  This is the current worth of your future monthly payments. Since money today is worth
-                                  more than money in the future (due to inflation and opportunity cost), we discount
-                                  future payments to their present value using a 12.5% annual discount rate. This
-                                  creates savings compared to paying the full monthly amount over 48 months.
-                                </div>
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                              </div>
-                            </div>
-                          </span>
-                          <span className="text-green-600">{formatCurrency(monthlyPV)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-gray-600">
-                          <span>Savings from PV discount</span>
-                          <span>-{formatCurrency(monthlyTotal48 - monthlyPV)}</span>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-gray-700">Total to Finance</h4>
-                        <div className="flex justify-between text-sm">
-                          <span>Present value of monthly services</span>
-                          <span>{formatCurrency(monthlyPV)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>One-time charges</span>
-                          <span>{formatCurrency(oneTimeCharges)}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between font-semibold">
-                          <span>Total Amount to Finance</span>
-                          <span>{formatCurrency(totalToFinance)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <h3 className="text-2xl font-bold">Option 3: Monthly Payment Plan</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg">
-                  <div>
-                    <p className="text-green-600 font-semibold">Monthly Recurring</p>
-                    <p className="text-sm text-gray-600">(48-month contract)</p>
-                    <p className="text-3xl font-bold text-green-600">{formatCurrency(monthlyRecurring)}</p>
-                  </div>
-                  <div>
-                    <p className="text-blue-600 font-semibold">One-Time Setup</p>
-                    <p className="text-sm text-gray-600">(Upfront payment)</p>
-                    <p className="text-3xl font-bold text-blue-600">{formatCurrency(oneTimeCharges)}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">
-                  Laundry Boss Guarantees an increase in your store revenue of 8% within the first 6 months for all
-                  customers, who did not previously implement a card system, or you can cancel with no additional
-                  impact.
+              <div className="mt-4 p-3 bg-purple-100 rounded">
+                <p className="text-purple-800 font-medium">
+                  💰 Total Savings: {formatCurrency(totalPrice - cleanShowTotalPrice)}
                 </p>
-                <div className="pt-4">
-                  <p className="text-xs text-gray-500">
-                    This quote is valid for 30 days and subject to final site survey.
-                  </p>
-                </div>
+                <p className="text-xs text-purple-700">Same great pricing as our distributors - limited time offer!</p>
               </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-              <CardHeader>
-                <CardTitle className="text-green-600">Monthly Recurring Fees</CardTitle>
-                <p className="text-sm text-gray-600">Based on 48-month contract</p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span>Washers ({data.numWashers} × $5.00)</span>
-                  <span>{formatCurrency(data.numWashers * 5)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Dryers ({data.numDryers} × $5.00)</span>
-                  <span>{formatCurrency(data.numDryers * 5)}</span>
-                </div>
-                {data.wantsWashDryFold && (
-                  <div className="flex justify-between">
-                    <span>WDF Software License</span>
-                    <span>{formatCurrency(100)}</span>
-                  </div>
-                )}
-                {data.wantsPickupDelivery && (
-                  <div className="flex justify-between">
-                    <span>Pick Up & Delivery License</span>
-                    <span>{formatCurrency(100)}</span>
-                  </div>
-                )}
-                {data.hasAiAttendantWithIntegration && (
-                  <>
-                    <div className="flex justify-between">
-                      <span>AI Attendant Service</span>
-                      <span>{formatCurrency(49.99)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>AI Integration Service</span>
-                      <span>{formatCurrency(50.0)}</span>
-                    </div>
-                  </>
-                )}
-                {data.hasAiAttendant && !data.hasAiAttendantWithIntegration && (
-                  <div className="flex justify-between">
-                    <span>AI Attendant Service</span>
-                    <span>{formatCurrency(49.99)}</span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Monthly Total</span>
-                  <span className="text-green-600">{formatCurrency(monthlyRecurring)}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-              <CardHeader>
-                <CardTitle className="text-blue-600">One-Time Charges</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span>Harnesses ({totalMachines} × $25.00)</span>
-                  <span>{formatCurrency(totalMachines * 25)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>QR Codes ({qrCodeInfo.sheets} × $110.00)</span>
-                  <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
-                </div>
-                {posSystemCost > 0 && (
-                  <div className="flex justify-between">
-                    <span>Laundry Boss Point of Sale System</span>
-                    <span>{formatCurrency(posSystemCost)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Sign Package</span>
-                  <span>{formatCurrency(140)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Matterport 3D Scan</span>
-                  <span>{formatCurrency(350)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>FULL Network Package</span>
-                  <span>{formatCurrency(1875)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Laundry Boss Installation</span>
-                  <span>{formatCurrency(installationCost)}</span>
-                </div>
-                {data.selfInstall && (
-                  <div className="text-xs text-gray-500 -mt-2 ml-4">Self-install with assistance</div>
-                )}
-                {!data.selfInstall && (
-                  <div className="text-xs text-gray-500 -mt-2 ml-4">
-                    Full installation service ({totalMachines} machines)
-                  </div>
-                )}
-                {data.kioskOptions.rearLoad.selected && (
-                  <div className="flex justify-between">
-                    <span>Rear Load Kiosk ({data.kioskOptions.rearLoad.quantity})</span>
-                    <span>
-                      {formatCurrency(
-                        pricingData.kioskOptions.rearLoadKiosk.price * data.kioskOptions.rearLoad.quantity,
-                      )}
-                    </span>
-                  </div>
-                )}
-                {data.kioskOptions.frontLoad.selected && (
-                  <div className="flex justify-between">
-                    <span>Front Load Kiosk ({data.kioskOptions.frontLoad.quantity})</span>
-                    <span>
-                      {formatCurrency(
-                        pricingData.kioskOptions.frontLoadKiosk.price * data.kioskOptions.frontLoad.quantity,
-                      )}
-                    </span>
-                  </div>
-                )}
-                {data.kioskOptions.creditBill.selected && (
-                  <div className="flex justify-between">
-                    <span>EBT Kiosk ({data.kioskOptions.creditBill.quantity})</span>
-                    <span>
-                      {formatCurrency(
-                        pricingData.kioskOptions.creditBillKiosk.price * data.kioskOptions.creditBill.quantity,
-                      )}
-                    </span>
-                  </div>
-                )}
-                {data.kioskOptions.creditOnly.selected && (
-                  <div className="flex justify-between">
-                    <span>Credit Card Only Kiosk ({data.kioskOptions.creditOnly.quantity})</span>
-                    <span>
-                      {formatCurrency(
-                        pricingData.kioskOptions.creditOnlyKiosk.price * data.kioskOptions.creditOnly.quantity,
-                      )}
-                    </span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between font-bold text-lg">
-                  <span>One-Time Total</span>
-                  <span className="text-blue-600">{formatCurrency(oneTimeCharges)}</span>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
           </div>
-        </>
-      )}
+        )}
+      </div>
 
-      {data.additionalNotes && (
-        <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
-          <CardHeader>
-            <CardTitle>Additional Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-700">{data.additionalNotes}</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Additional Notes */}
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">📋 Additional Notes</h3>
+        <ul className="space-y-2 text-sm text-gray-600">
+          <li>• All monthly pricing is based on a 48-month contract term</li>
+          <li>• Installation includes full setup and training for your team</li>
+          <li>• 24/7 technical support and maintenance included</li>
+          <li>• Revenue projections based on Laundry Boss average performance data</li>
+          <li>• Financing options available with approved credit</li>
+        </ul>
+      </div>
 
-      <div className="flex justify-center space-x-4">
-        <Button onClick={onBack} variant="outline" className="bg-cyan-50 border-cyan-200 text-cyan-700">
-          Back to Edit Information
-        </Button>
-        <Button onClick={onNewQuote} variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
-          New Quote
-        </Button>
-        <Button onClick={() => window.print()} className="bg-green-50 border-green-200 text-green-700">
-          Print Quote
-        </Button>
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 pt-6">
+        <button
+          onClick={onBack}
+          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          ← Back to Questions
+        </button>
+        <button
+          onClick={onNewQuote}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Generate New Quote
+        </button>
       </div>
     </div>
   )

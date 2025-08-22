@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Eye, EyeOff, ChevronUp, ChevronDown, Info, Trash2, RefreshCw, CreditCard, BarChart3 } from "lucide-react"
+import { Eye, EyeOff, ChevronUp, ChevronDown, Trash2, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@supabase/supabase-js"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
 
 type Quote = {
   id: string
@@ -15,6 +15,7 @@ type Quote = {
   owner_name: string | null
   distributor_name: string | null
   customer_email: string | null
+  customer_phone: string | null // Added phone number field
   store_size: number | null
   num_washers: number | null
   num_dryers: number | null
@@ -42,12 +43,28 @@ type Quote = {
   expected_close_date: string | null
   additional_notes: string | null
   current_vendor: string | null
+  wants_wash_dry_fold: boolean | null
+  has_ai_attendant_with_integration: boolean | null
+  has_ai_attendant: boolean | null
 }
 
-function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string) => void }) {
+type QuoteDisplayProps = {
+  quote: Quote
+  onDelete: (id: string) => void
+  onUpdate: (id: string, updates: Partial<Quote>) => void
+}
+
+const QuoteDisplay = ({ quote, onDelete, onUpdate }: QuoteDisplayProps) => {
   const [showFinanceDetails, setShowFinanceDetails] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editingFinanceRate, setEditingFinanceRate] = useState(false)
+  const [newFinanceRate, setNewFinanceRate] = useState(quote.option2_interest_rate || 9)
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  useEffect(() => {
+    setNewFinanceRate(quote.option2_interest_rate || 9)
+  }, [quote.option2_interest_rate])
 
   const formatCurrency = (amount: number | null) => {
     if (!amount) return "$0.00"
@@ -125,11 +142,49 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
   const monthlyTotal48 = (quote.monthly_recurring || 0) * 48
   const monthlyPV = calculatePresentValue(quote.monthly_recurring || 0)
   const totalToFinance = monthlyPV + (quote.one_time_charges || 0)
-  const interestRate = quote.option2_interest_rate || 9
-  const totalOfPayments = (quote.financed_monthly_payment || 0) * 48
+  const interestRate = newFinanceRate
+  const financedMonthlyPayment = calculateLoanPayment(totalToFinance, interestRate)
+  const totalOfPayments = financedMonthlyPayment * 48
   const totalInterest = totalOfPayments - totalToFinance
 
   const posSystemFee = quote.wants_wdf || quote.wants_pickup_delivery ? 3125 : 0
+
+  const handleFinanceRateUpdate = async () => {
+    if (newFinanceRate === (quote.option2_interest_rate || 9)) {
+      setEditingFinanceRate(false)
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      const newFinancedPayment = calculateLoanPayment(totalToFinance, newFinanceRate)
+
+      const response = await fetch(`/api/admin/quotes/${quote.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          option2_interest_rate: newFinanceRate,
+          financed_monthly_payment: newFinancedPayment,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update financing rate")
+      }
+
+      const updatedQuote = await response.json()
+      onUpdate(quote.id, updatedQuote)
+      setEditingFinanceRate(false)
+    } catch (err) {
+      console.error("Error updating financing rate:", err)
+      alert("Failed to update financing rate")
+      setNewFinanceRate(quote.option2_interest_rate || 9) // Reset to original value
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this quote? This action cannot be undone.")) {
@@ -138,11 +193,13 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
 
     setIsDeleting(true)
     try {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-      const { error } = await supabase.from("quotes").delete().eq("id", quote.id)
+      const response = await fetch(`/api/admin/quotes/${quote.id}`, {
+        method: "DELETE",
+      })
 
-      if (error) {
-        alert("Failed to delete quote: " + error.message)
+      if (!response.ok) {
+        const error = await response.text()
+        alert("Failed to delete quote: " + error)
       } else {
         onDelete(quote.id)
       }
@@ -189,19 +246,85 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
 
       {isExpanded && (
         <CardContent className="space-y-6">
+          {/* 4 Quadrants - Revenue Growth Projections */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Current Revenue */}
+            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-green-700 text-lg font-bold flex items-center justify-center gap-2">
+                  📈 Current Revenue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-1">
+                <div className="text-sm">
+                  <div>Weekly: {formatCurrency((monthlyRevenueBaseline || 0) / weeksPerMonth)}</div>
+                  <div>Monthly: {formatCurrency(monthlyRevenueBaseline || 0)}</div>
+                  <div className="font-semibold">Annual: {formatCurrency((monthlyRevenueBaseline || 0) * 12)}</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Projected with Laundry Boss */}
+            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-blue-700 text-lg font-bold">Projected with Laundry Boss</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-1">
+                <div className="text-sm">
+                  <div>Weekly: {formatCurrency(projectedWeeklyAfterLB || 0)}</div>
+                  <div>Monthly: {formatCurrency(projectedMonthlyAfterLB || 0)}</div>
+                  <div className="font-semibold">Annual: {formatCurrency(projectedAnnualAfterLB || 0)}</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Additional Revenue */}
+            <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-amber-700 text-lg font-bold flex items-center justify-center gap-2">
+                  💰 Additional Revenue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-1">
+                <div className="text-sm">
+                  <div>{formatCurrency(addedWeeklyRevenue || 0)}/week</div>
+                  <div>{formatCurrency(addedMonthlyRevenue || 0)}/month</div>
+                  <div className="font-semibold">{formatCurrency(addedAnnualRevenue || 0)}/year</div>
+                </div>
+                <div className="text-xs text-amber-600 mt-2">Based on 15.3% average increase in first ~90 days</div>
+              </CardContent>
+            </Card>
+
+            {/* Operational Savings */}
+            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-purple-700 text-lg font-bold flex items-center justify-center gap-2">
+                  🔧 Operational Savings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-1">
+                <div className="text-sm">
+                  <div>{formatCurrency(weeklyOperationalSavings || 0)}/week</div>
+                  <div>{formatCurrency(monthlyOperationalSavings || 0)}/month</div>
+                  <div className="font-semibold">{formatCurrency(annualOperationalSavings || 0)}/year</div>
+                </div>
+                <div className="text-xs text-purple-600 mt-2">
+                  Reduced wear and tear from embedded readers. Smart monitoring and preventive alerts.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Revenue Impact Overview */}
           <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
             <CardHeader className="text-center">
               <CardTitle className="text-cyan-700 text-2xl font-bold">Revenue Impact Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center">
-                <div className="text-sm text-gray-600">Owner-Reported Monthly Revenue</div>
-                <div className="text-2xl font-bold">
-                  {monthlyRevenueBaseline > 0 ? formatCurrency(monthlyRevenueBaseline) : "Not provided"}
-                </div>
+              <div className="text-lg font-semibold text-gray-700 mt-2">
+                Owner-Reported Monthly Revenue:{" "}
+                {monthlyRevenueBaseline > 0 ? formatCurrency(monthlyRevenueBaseline) : "Not provided"}
               </div>
-
+            </CardHeader>
+            <CardContent>
               <div className="overflow-hidden rounded-lg border">
                 <div className="grid grid-cols-3 bg-gray-50 text-sm font-medium">
                   <div className="px-4 py-3 text-left">Timeframe</div>
@@ -221,79 +344,39 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
                     <div className="px-4 py-3 text-center">{formatCurrency(monthlyRevenueBaseline || 0)}</div>
                     <div className="px-4 py-3 text-center">{formatCurrency(projectedMonthlyAfterLB || 0)}</div>
                   </div>
-                  <div className="grid grid-cols-3 text-sm">
-                    <div className="px-4 py-3">Annual</div>
-                    <div className="px-4 py-3 text-center">{formatCurrency((monthlyRevenueBaseline || 0) * 12)}</div>
+                  <div className="grid grid-cols-3 text-sm bg-cyan-50 font-semibold">
+                    <div className="px-4 py-3">Annual Revenue After LB</div>
+                    <div className="px-4 py-3 text-center">—</div>
                     <div className="px-4 py-3 text-center">{formatCurrency(projectedAnnualAfterLB || 0)}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 bg-cyan-50 text-sm font-semibold">
-                  <div className="px-4 py-3">Added Revenue</div>
-                  <div className="px-4 py-3 text-center">—</div>
-                  <div className="px-4 py-3 text-center">Annual {formatCurrency(addedAnnualRevenue || 0)}</div>
-                </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-blue-700 text-base">Additional Operational Savings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>Weekly</span>
-                      <span className="font-semibold">{formatCurrency(weeklyOperationalSavings || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Monthly</span>
-                      <span className="font-semibold">{formatCurrency(monthlyOperationalSavings || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Annual</span>
-                      <span className="font-semibold">{formatCurrency(annualOperationalSavings || 0)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200">
-                  <CardHeader>
-                    <CardTitle className="text-blue-700 text-base flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Laundry Boss Features
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3">
-                        <CreditCard className="h-5 w-5 text-cyan-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <div className="font-semibold text-sm" style={{ color: "#2D2926" }}>
-                            EMV/EBT Capable Payment System
-                          </div>
-                          <p className="text-xs text-gray-600">
-                            Accept all major payment methods including EBT/SNAP benefits
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <BarChart3 className="h-5 w-5 text-cyan-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <div className="font-semibold text-sm" style={{ color: "#2D2926" }}>
-                            Advanced Data Analytics
-                          </div>
-                          <p className="text-xs text-gray-600">
-                            Real-time insights into revenue, usage patterns, and customer behavior
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t border-cyan-200">
-                      <p className="text-xs text-blue-700 font-medium">
-                        Plus: Mobile app integration, remote monitoring, automated reporting, and 24/7 customer support
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+          {/* Why Laundry Boss is a Perfect Fit */}
+          <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200">
+            <CardHeader className="text-center">
+              <CardTitle className="text-indigo-700 text-xl font-bold">Why Laundry Boss is a Perfect Fit</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-gray-700">Proven track record of 15.3% average revenue increase</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-gray-700">Smart monitoring reduces equipment downtime</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-gray-700">Enhanced customer experience drives repeat business</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-gray-700">Real-time analytics help optimize operations</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -355,12 +438,14 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
                   <p>
                     <strong>Email:</strong> {quote.customer_email || "Not provided"}
                   </p>
+                  <p>
+                    <strong>Phone:</strong> {quote.customer_phone || "Not provided"}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Pricing Options */}
           {isDistributor ? (
             <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
               <CardHeader>
@@ -384,8 +469,8 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
               {/* Option 1: Total Price */}
               <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
                 <CardHeader>
-                  <CardTitle className="text-cyan-700">Option 1: Total Price</CardTitle>
-                  <p className="text-sm text-gray-600">One-time payment for complete solution</p>
+                  <CardTitle className="text-center text-xl text-cyan-700">Option 1: Total Price</CardTitle>
+                  <p className="text-sm text-gray-600 text-center">One-time payment for complete solution</p>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center space-y-4">
@@ -403,98 +488,62 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
               {/* Option 2: Financed */}
               <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
                 <CardHeader>
-                  <CardTitle className="text-cyan-700">Option 2: Financed Solution</CardTitle>
-                  <p className="text-sm text-gray-600">
-                    Finance all costs over 48 months at {quote.option2_interest_rate || 9}% APR
-                  </p>
+                  <CardTitle className="text-center text-xl text-cyan-700">Option 2: Financed Solution</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">Finance all costs over 48 months at {interestRate}% APR</p>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center space-y-4">
-                    <div>
-                      <p className="text-cyan-600 font-semibold text-lg">Financed Monthly Payment</p>
-                      <p className="text-3xl font-bold text-cyan-600">
-                        {formatCurrency(quote.financed_monthly_payment)}
+                    <div className="bg-white rounded-lg p-6 border-2 border-cyan-200">
+                      <p className="text-cyan-600 font-semibold text-lg mb-2">Financed Monthly Payment</p>
+                      <p className="text-2xl font-bold text-green-600">{formatCurrency(financedMonthlyPayment)}</p>
+                      <p className="text-sm text-gray-600">
+                        48-month term • Includes all hardware, software, and services
                       </p>
-                      <p className="text-sm text-gray-600">per month for 48 months at {interestRate}% APR</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                      <div>
-                        <p>
-                          <strong>Total of payments:</strong> {formatCurrency(totalOfPayments)}
-                        </p>
-                      </div>
-                      <div>
-                        <p>
-                          <strong>Total interest:</strong> {formatCurrency(totalInterest)}
-                        </p>
-                      </div>
+                    <div className="flex items-center justify-center gap-2">
+                      {editingFinanceRate ? (
+                        <>
+                          <Input
+                            type="number"
+                            value={newFinanceRate}
+                            onChange={(e) => setNewFinanceRate(Number(e.target.value))}
+                            className="w-20 text-center"
+                          />
+                          <Button size="sm" onClick={handleFinanceRateUpdate} disabled={isUpdating}>
+                            {isUpdating ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Update"}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => setEditingFinanceRate(true)}>
+                          Edit Finance Rate
+                        </Button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="border-t pt-4 mt-4">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowFinanceDetails(!showFinanceDetails)}
-                      className="w-full flex items-center justify-center gap-2 text-cyan-600 hover:text-cyan-700"
-                    >
-                      {showFinanceDetails ? "Hide" : "Show"} Calculation Details
-                      {showFinanceDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-
-                    {showFinanceDetails && (
-                      <div className="mt-4 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <h4 className="font-semibold text-gray-700">Monthly Services Calculation</h4>
-                            <div className="flex justify-between text-sm">
-                              <span>Monthly recurring × 48 months</span>
-                              <span>{formatCurrency(monthlyTotal48)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm items-center">
-                              <span className="flex items-center gap-1">
-                                Present value (discounted)
-                                <div className="group relative">
-                                  <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
-                                    <div className="text-center">
-                                      <strong>Present Value Explained:</strong>
-                                      <br />
-                                      This is the current worth of your future monthly payments. Since money today is
-                                      worth more than money in the future (due to inflation and opportunity cost), we
-                                      discount future payments to their present value using a 12.5% annual discount
-                                      rate. This creates savings compared to paying the full monthly amount over 48
-                                      months.
-                                    </div>
-                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                  </div>
-                                </div>
-                              </span>
-                              <span className="text-green-600">{formatCurrency(monthlyPV)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm text-gray-600">
-                              <span>Savings from PV discount</span>
-                              <span>-{formatCurrency(monthlyTotal48 - monthlyPV)}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            <h4 className="font-semibold text-gray-700">Total to Finance</h4>
-                            <div className="flex justify-between text-sm">
-                              <span>Present value of monthly services</span>
-                              <span>{formatCurrency(monthlyPV)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span>One-time charges</span>
-                              <span>{formatCurrency(quote.one_time_charges)}</span>
-                            </div>
-                            <Separator />
-                            <div className="flex justify-between font-semibold">
-                              <span>Total Amount to Finance</span>
-                              <span>{formatCurrency(totalToFinance)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  <Separator className="my-4" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="font-semibold text-gray-700">Total of Payments</p>
+                      <p>{formatCurrency(totalOfPayments)}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-700">Total Interest</p>
+                      <p>{formatCurrency(totalInterest)}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-700">Present Value</p>
+                      <p>{formatCurrency(monthlyPV)}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-700">One-Time Charges</p>
+                      <p>{formatCurrency(quote.one_time_charges)}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-700">Total to Finance</p>
+                      <p>{formatCurrency(totalToFinance)}</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -503,9 +552,12 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
               <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
                 <CardHeader>
                   <CardTitle className="text-center text-xl">Option 3: Monthly Payment Plan</CardTitle>
+                  <p className="text-sm text-gray-600 text-center">
+                    Low monthly payments with comprehensive service package
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center mb-4">
                     <div>
                       <p className="text-cyan-600 font-semibold">Monthly Recurring</p>
                       <p className="text-2xl font-bold text-cyan-600">{formatCurrency(quote.monthly_recurring)}</p>
@@ -517,9 +569,269 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
                       <p className="text-sm text-gray-600">(Upfront payment)</p>
                     </div>
                   </div>
+
+                  <div className="grid md:grid-cols-2 gap-6 mb-4">
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <h4 className="font-semibold text-purple-800 mb-3">Monthly Recurring Fees</h4>
+                      <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Washers ({quote.num_washers || 0} × $5.00)</span>
+                          <span>{formatCurrency((quote.num_washers || 0) * 5)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Dryers ({quote.num_dryers || 0} × $5.00)</span>
+                          <span>{formatCurrency((quote.num_dryers || 0) * 5)}</span>
+                        </div>
+                        {(quote.wants_wash_dry_fold || quote.wants_wdf) && (
+                          <div className="flex justify-between">
+                            <span>WDF Software License</span>
+                            <span>{formatCurrency(100)}</span>
+                          </div>
+                        )}
+                        {quote.wants_pickup_delivery && (
+                          <div className="flex justify-between">
+                            <span>Pick Up & Delivery License</span>
+                            <span>{formatCurrency(100)}</span>
+                          </div>
+                        )}
+                        {quote.ai_attendant && (
+                          <div className="flex justify-between">
+                            <span>AI Attendant Service</span>
+                            <span>{formatCurrency(50)}</span>
+                          </div>
+                        )}
+                        {quote.ai_integration && (
+                          <div className="flex justify-between">
+                            <span>AI Integration Service</span>
+                            <span>{formatCurrency(100)}</span>
+                          </div>
+                        )}
+                        <Separator />
+                        <div className="flex justify-between font-bold text-lg">
+                          <span>Monthly Total</span>
+                          <span className="text-cyan-600">{formatCurrency(quote.monthly_recurring)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* One-Time Charges */}
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <h4 className="font-semibold text-gray-800 mb-3">One-Time Charges</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Harnesses ({totalMachines} × $25.00)</span>
+                          <span>{formatCurrency(totalMachines * 25)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>QR Codes</span>
+                          <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Sign Package</span>
+                          <span>{formatCurrency(140)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Matterport 3D Scan</span>
+                          <span>{formatCurrency(350)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>FULL Network Package</span>
+                          <span>{formatCurrency(1875)}</span>
+                        </div>
+                        {posSystemFee > 0 && (
+                          <div className="flex justify-between">
+                            <span>Laundry Boss Point of Sale System</span>
+                            <span>{formatCurrency(posSystemFee)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span>Laundry Boss Installation</span>
+                          <span>
+                            {formatCurrency(
+                              (quote.one_time_charges || 0) -
+                                totalMachines * 25 -
+                                qrCodeInfo.totalCost -
+                                140 -
+                                350 -
+                                1875 -
+                                posSystemFee,
+                            )}
+                          </span>
+                        </div>
+                        {quote.self_install && (
+                          <div className="text-xs text-gray-500 -mt-2 ml-4">Self-install with assistance</div>
+                        )}
+                        {!quote.self_install && (
+                          <div className="text-xs text-gray-500 -mt-2 ml-4">
+                            Full installation service ({totalMachines} machines)
+                          </div>
+                        )}
+                        <Separator />
+                        <div className="flex justify-between font-bold text-lg">
+                          <span>One-Time Total</span>
+                          <span className="text-blue-600">{formatCurrency(quote.one_time_charges)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 bg-purple-100 rounded">
+                    <p className="text-purple-800 font-medium">
+                      💰 Total System Cost: {formatCurrency(quote.total_price_option1)}
+                    </p>
+                    <div className="mt-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
+                      <h4 className="font-semibold text-cyan-800 mb-2">48-Month Total Investment</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Monthly Payments (48 × {formatCurrency(quote.monthly_recurring)})</span>
+                          <span>{formatCurrency((quote.monthly_recurring || 0) * 48)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>One-Time Setup Charges</span>
+                          <span>{formatCurrency(quote.one_time_charges)}</span>
+                        </div>
+                        <div className="border-t pt-1 font-semibold flex justify-between text-cyan-800">
+                          <span>Total 48-Month Investment</span>
+                          <span>
+                            {formatCurrency((quote.monthly_recurring || 0) * 48 + (quote.one_time_charges || 0))}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-cyan-600 text-center mt-2">
+                        Comprehensive service package with predictable monthly payments
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
+              {/* Option 4: Clean Show 2025 Special Pricing */}
+              <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+                <CardHeader>
+                  <CardTitle className="text-center text-xl text-purple-700">
+                    🎉 Option 4: Clean Show 2025 Special
+                  </CardTitle>
+                  <p className="text-sm text-center text-purple-600">
+                    Limited-time exclusive offer - expires March 31, 2025
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center mb-4">
+                    <div>
+                      <p className="text-purple-600 font-semibold">Special Monthly Rate</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {formatCurrency((quote.monthly_recurring || 0) * 0.8)}
+                      </p>
+                      <p className="text-sm text-gray-600">(20% off regular monthly rate)</p>
+                    </div>
+                    <div>
+                      <p className="text-pink-600 font-semibold">Reduced Setup Cost</p>
+                      <p className="text-2xl font-bold text-pink-600">
+                        {formatCurrency((quote.one_time_charges || 0) * 0.7)}
+                      </p>
+                      <p className="text-sm text-gray-600">(30% off setup costs)</p>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6 mb-4">
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <h4 className="font-semibold text-purple-800 mb-3">Monthly Services (20% Discount)</h4>
+                      <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Washers ({quote.num_washers || 0} × $4.00)</span>
+                          <span>{formatCurrency((quote.num_washers || 0) * 4)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Dryers ({quote.num_dryers || 0} × $4.00)</span>
+                          <span>{formatCurrency((quote.num_dryers || 0) * 4)}</span>
+                        </div>
+                        {(quote.wants_wash_dry_fold || quote.wants_wdf) && (
+                          <div className="flex justify-between">
+                            <span>WDF Software License</span>
+                            <span>$80.00</span>
+                          </div>
+                        )}
+                        {quote.wants_pickup_delivery && (
+                          <div className="flex justify-between">
+                            <span>Pick Up & Delivery License</span>
+                            <span>$80.00</span>
+                          </div>
+                        )}
+                        {quote.ai_attendant && (
+                          <div className="flex justify-between">
+                            <span>AI Attendant Service</span>
+                            <span>$40.00</span>
+                          </div>
+                        )}
+                        {quote.ai_integration && (
+                          <div className="flex justify-between">
+                            <span>AI Integration Service</span>
+                            <span>$80.00</span>
+                          </div>
+                        )}
+                        <div className="border-t pt-1 font-semibold flex justify-between">
+                          <span>Monthly Total</span>
+                          <span>{formatCurrency((quote.monthly_recurring || 0) * 0.8)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* One-Time Charges with Clean Show Pricing */}
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <h4 className="font-semibold text-gray-800 mb-3">One-Time Charges (30% Kiosk Discount)</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Harnesses ({totalMachines} × $25.00)</span>
+                          <span>{formatCurrency(totalMachines * 25)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>QR Codes</span>
+                          <span>$150.00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Sign Package</span>
+                          <span>$500.00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Matterport 3D Scan</span>
+                          <span>$500.00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>FULL Network Package</span>
+                          <span>$1,500.00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Laundry Boss Point of Sale System</span>
+                          <span>$2,500.00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Laundry Boss Installation</span>
+                          <span>$2,000.00</span>
+                        </div>
+                        <div className="border-t pt-1 font-semibold flex justify-between">
+                          <span>One-Time Total</span>
+                          <span>{formatCurrency((quote.one_time_charges || 0) * 0.7)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-purple-100 rounded-lg">
+                    <p className="text-sm text-purple-700 text-center font-medium">
+                      🎉 Clean Show 2025 Exclusive: Save up to{" "}
+                      {formatCurrency((quote.monthly_recurring || 0) * 0.2 * 48 + (quote.one_time_charges || 0) * 0.3)}{" "}
+                      over 48 months!
+                    </p>
+                    <p className="text-xs text-purple-600 text-center mt-1">
+                      Same great pricing as our distributors - limited time offer!
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Service Breakdown */}
               <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
@@ -533,54 +845,37 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
                         <span>{formatCurrency((quote.num_washers || 0) * 5)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>QR Codes ({qrCodeInfo.sheets} × $110.00)</span>
-                        <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
+                        <span>Dryers ({quote.num_dryers || 0} × $5.00)</span>
+                        <span>{formatCurrency((quote.num_dryers || 0) * 5)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Sign Package</span>
-                        <span>{formatCurrency(140)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Matterport 3D Scan</span>
-                        <span>{formatCurrency(350)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>FULL Network Package</span>
-                        <span>{formatCurrency(1875)}</span>
-                      </div>
-                      {posSystemFee > 0 && (
+                      {quote.wants_wdf && (
                         <div className="flex justify-between">
-                          <span>Laundry Boss Point of Sale System</span>
-                          <span>{formatCurrency(posSystemFee)}</span>
+                          <span>WDF Software License</span>
+                          <span>{formatCurrency(100)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between">
-                        <span>Laundry Boss Installation</span>
-                        <span>
-                          {formatCurrency(
-                            (quote.one_time_charges || 0) -
-                              totalMachines * 25 -
-                              qrCodeInfo.totalCost -
-                              140 -
-                              350 -
-                              1875 -
-                              posSystemFee,
-                          )}
-                        </span>
-                      </div>
-                      {quote.self_install && (
-                        <div className="text-xs text-gray-500 -mt-2 ml-4">Self-install with assistance</div>
-                      )}
-                      {!quote.self_install && (
-                        <div className="text-xs text-gray-500 -mt-2 ml-4">
-                          Full installation service ({totalMachines} machines)
+                      {quote.wants_pickup_delivery && (
+                        <div className="flex justify-between">
+                          <span>Pick Up & Delivery License</span>
+                          <span>{formatCurrency(100)}</span>
                         </div>
                       )}
-                      {/* Kiosk details would go here if we had that data in the quote */}
+                      {quote.ai_attendant && (
+                        <div className="flex justify-between">
+                          <span>AI Attendant Service</span>
+                          <span>{formatCurrency(50)}</span>
+                        </div>
+                      )}
+                      {quote.ai_integration && (
+                        <div className="flex justify-between">
+                          <span>AI Integration Service</span>
+                          <span>{formatCurrency(100)}</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-bold text-lg">
-                        <span>One-Time Total</span>
-                        <span className="text-blue-600">{formatCurrency(quote.one_time_charges)}</span>
+                        <span>Monthly Total</span>
+                        <span className="text-cyan-600">{formatCurrency(quote.monthly_recurring)}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -638,7 +933,6 @@ function QuoteDisplay({ quote, onDelete }: { quote: Quote; onDelete: (id: string
                           Full installation service ({totalMachines} machines)
                         </div>
                       )}
-                      {/* Kiosk details would go here if we had that data in the quote */}
                       <Separator />
                       <div className="flex justify-between font-bold text-lg">
                         <span>One-Time Total</span>
@@ -708,36 +1002,33 @@ export default function QuotesListPage() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const quotesPerPage = 10
+  const [quotesPerPage] = useState(10)
 
   const fetchQuotes = async (page = 1) => {
     try {
       setLoading(true)
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+      console.log("[v0] Fetching quotes for page:", page)
+      const response = await fetch(`/api/admin/quotes?page=${page}&limit=${quotesPerPage}`)
 
-      const { count } = await supabase.from("quotes").select("*", { count: "exact", head: true })
-
-      const { data, error } = await supabase
-        .from("quotes")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .range((page - 1) * quotesPerPage, page * quotesPerPage - 1)
-
-      if (error) {
-        console.error("Supabase error:", error)
-        setError(error.message)
-      } else {
-        console.log("Fetched quotes:", data?.length || 0, "of", count || 0, "total")
-        setQuotes(data || [])
-        setTotalCount(count || 0)
-        setError(null)
+      if (!response.ok) {
+        throw new Error("Failed to fetch quotes")
       }
+
+      const result = await response.json()
+      console.log("[v0] Fetched quotes:", result.quotes?.length || 0, "of", result.totalCount || 0, "total")
+      setQuotes(result.quotes || [])
+      setTotalCount(result.totalCount || 0)
+      setError(null)
     } catch (err) {
-      console.error("Error fetching quotes:", err)
+      console.error("[v0] Error fetching quotes:", err)
       setError("Failed to fetch quotes")
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleUpdateQuote = (id: string, updates: Partial<Quote>) => {
+    setQuotes(quotes.map((quote) => (quote.id === id ? { ...quote, ...updates } : quote)))
   }
 
   useEffect(() => {
@@ -748,7 +1039,7 @@ export default function QuotesListPage() {
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [currentPage])
+  }, [currentPage, quotesPerPage])
 
   const handleDeleteQuote = (deletedId: string) => {
     setQuotes(quotes.filter((quote) => quote.id !== deletedId))
@@ -761,6 +1052,26 @@ export default function QuotesListPage() {
 
   const handleRefresh = () => {
     fetchQuotes(currentPage)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      // Scroll to top when changing pages
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1)
+    }
   }
 
   const totalPages = Math.ceil(totalCount / quotesPerPage)
@@ -808,7 +1119,7 @@ export default function QuotesListPage() {
         </CardHeader>
       </Card>
 
-      {totalCount === 0 ? (
+      {quotes.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
             <p className="text-gray-600">No quotes found.</p>
@@ -816,86 +1127,117 @@ export default function QuotesListPage() {
         </Card>
       ) : (
         <>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing {startIndex} to {endIndex} of {totalCount} quotes
-            </p>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum
-                    if (totalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
+          <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Showing {startIndex} to {endIndex} of {totalCount} quotes (Page {currentPage} of {totalPages})
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={currentPage === 1}>
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                        let pageNum
+                        if (totalPages <= 7) {
+                          pageNum = i + 1
+                        } else if (currentPage <= 4) {
+                          pageNum = i + 1
+                        } else if (currentPage >= totalPages - 3) {
+                          pageNum = totalPages - 6 + i
+                        } else {
+                          pageNum = currentPage - 3 + i
+                        }
 
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className="w-8 h-8 p-0"
-                      >
-                        {pageNum}
-                      </Button>
-                    )
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNum)}
+                            className="w-10 h-8 p-0 text-sm"
+                          >
+                            {pageNum}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage === totalPages}>
+                      Next
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
 
           <div className="space-y-4">
             {quotes.map((quote) => (
-              <QuoteDisplay key={quote.id} quote={quote} onDelete={handleDeleteQuote} />
+              <QuoteDisplay key={quote.id} quote={quote} onDelete={handleDeleteQuote} onUpdate={handleUpdateQuote} />
             ))}
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
+            <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    className="flex items-center gap-2 bg-transparent"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                    Previous Page
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Page</span>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(10, totalPages) }, (_, i) => {
+                        let pageNum
+                        if (totalPages <= 10) {
+                          pageNum = i + 1
+                        } else if (currentPage <= 5) {
+                          pageNum = i + 1
+                        } else if (currentPage >= totalPages - 4) {
+                          pageNum = totalPages - 9 + i
+                        } else {
+                          pageNum = currentPage - 4 + i
+                        }
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNum)}
+                            className="w-10 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    <span className="text-sm text-gray-600">of {totalPages}</span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center gap-2 bg-transparent"
+                  >
+                    Next Page
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </>
       )}
