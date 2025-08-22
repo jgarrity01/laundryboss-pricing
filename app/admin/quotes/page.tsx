@@ -227,6 +227,11 @@ const QuoteDisplay = ({ quote, onDelete, onUpdate }: QuoteDisplayProps) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link href={`/admin/quotes/${quote.id}`}>
+              <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                View Details
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
               {isExpanded ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
               {isExpanded ? "Collapse" : "Expand"}

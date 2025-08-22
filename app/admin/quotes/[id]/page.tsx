@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Edit, Save, X, RefreshCw } from "lucide-react"
+import jsPDF from "jspdf"
 
 type QuoteDetail = {
   quote: any
@@ -97,6 +98,164 @@ export default function QuoteDetailPage() {
     }
   }
 
+  const generateAdminPDF = async () => {
+    console.log("[v0] Admin PDF generation started for quote:", data?.quote.id)
+    try {
+      const doc = new jsPDF()
+      const pageWidth = doc.internal.pageSize.width
+      const margin = 20
+      let yPosition = 20
+
+      const addText = (text: string, x: number, y: number, options: any = {}) => {
+        const maxWidth = options.maxWidth || pageWidth - 2 * margin
+        const lines = doc.splitTextToSize(text, maxWidth)
+        doc.text(lines, x, y)
+        return y + lines.length * (options.lineHeight || 6)
+      }
+
+      doc.setFontSize(20)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Laundry Boss Quote", margin, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(
+        `Customer: ${data?.quote.owner_name || "N/A"} | Business: ${data?.quote.prospect_name || "N/A"}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `Email: ${data?.quote.customer_email || "N/A"} | Phone: ${data?.quote.customer_phone || "N/A"}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `Configuration: ${data?.quote.num_washers || 0} Washers, ${data?.quote.num_dryers || 0} Dryers`,
+        margin,
+        yPosition,
+      )
+      yPosition += 10
+
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Revenue Growth Projections", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      const monthlyRevenueBaseline = Math.max(0, Number(data?.quote.monthly_base_revenue || 0))
+      const upliftRate = 0.153
+      const addedMonthlyRevenue = monthlyRevenueBaseline * upliftRate
+      const projectedMonthlyAfterLB = monthlyRevenueBaseline + addedMonthlyRevenue
+      const addedAnnualRevenue = addedMonthlyRevenue * 12
+
+      yPosition = addText(`Current Monthly Revenue: ${formatCurrency(monthlyRevenueBaseline)}`, margin, yPosition)
+      yPosition = addText(`Projected Monthly Revenue: ${formatCurrency(projectedMonthlyAfterLB)}`, margin, yPosition)
+      yPosition = addText(`Additional Monthly Revenue: ${formatCurrency(addedMonthlyRevenue)}`, margin, yPosition)
+      yPosition = addText(`Additional Annual Revenue: ${formatCurrency(addedAnnualRevenue)}`, margin, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Pricing Options", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(
+        `Option 1 - Total Price: ${formatCurrency(data?.quote.total_price_option1)}`,
+        margin,
+        yPosition,
+      )
+      if (data?.quote.financed_monthly_payment) {
+        yPosition = addText(
+          `Option 2 - Financed: ${formatCurrency(data?.quote.financed_monthly_payment)}/month for 48 months`,
+          margin,
+          yPosition,
+        )
+      }
+      yPosition = addText(
+        `Option 3 - Monthly Plan: ${formatCurrency(data?.quote.monthly_recurring)}/month + ${formatCurrency(data?.quote.one_time_charges)} setup`,
+        margin,
+        yPosition,
+      )
+      yPosition += 10
+
+      const breakdown = getServiceBreakdown(data?.quote)
+
+      if (yPosition > 250) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Monthly Recurring Fees", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      breakdown.monthlyServices.forEach((service) => {
+        yPosition = addText(`${service.name}: ${formatCurrency(service.price)}`, margin, yPosition)
+      })
+
+      doc.setFont(undefined, "bold")
+      yPosition = addText(`Monthly Total: ${formatCurrency(data?.quote.monthly_recurring)}`, margin, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(14)
+      yPosition = addText("One-Time Charges", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      breakdown.oneTimeCharges.forEach((charge) => {
+        yPosition = addText(`${charge.name}: ${formatCurrency(charge.price)}`, margin, yPosition)
+      })
+
+      doc.setFont(undefined, "bold")
+      yPosition = addText(`One-Time Total: ${formatCurrency(data?.quote.one_time_charges)}`, margin, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText("Generated by Laundry Boss Admin Panel", margin, yPosition)
+      yPosition = addText(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition)
+
+      const fileName = `LaundryBoss_Quote_${(data?.quote.prospect_name || "Quote").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
+      console.log("[v0] Admin PDF generated successfully:", fileName)
+      doc.save(fileName)
+
+      try {
+        const response = await fetch("/api/quotes/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerEmail: data?.quote.customer_email,
+            prospectName: data?.quote.prospect_name,
+            fileName: fileName,
+            quoteData: data?.quote,
+          }),
+        })
+
+        if (response.ok) {
+          console.log("[v0] Admin PDF reference saved to database")
+        }
+      } catch (error) {
+        console.error("[v0] Error saving admin PDF reference:", error)
+      }
+    } catch (error) {
+      console.error("[v0] Error generating admin PDF:", error)
+      alert("Failed to generate PDF. Please try again.")
+    }
+  }
+
+  const handlePrint = () => {
+    console.log("[v0] Admin print initiated")
+    window.print()
+  }
+
   const formatCurrency = (amount: number | null) => {
     if (!amount) return "$0.00"
     return new Intl.NumberFormat("en-US", {
@@ -107,6 +266,11 @@ export default function QuoteDetailPage() {
   }
 
   const getPricingOptionName = (quote: any) => {
+    console.log("[v0] Checking pricing option for quote:", quote.id)
+    console.log("[v0] Quote additional_savings_monthly:", quote.additional_savings_monthly)
+    console.log("[v0] Quote distributor:", quote.distributor)
+    console.log("[v0] Quote distributor_name:", quote.distributor_name)
+
     try {
       if (quote.additional_savings_monthly) {
         const pricingData =
@@ -114,15 +278,14 @@ export default function QuoteDetailPage() {
             ? JSON.parse(quote.additional_savings_monthly)
             : quote.additional_savings_monthly
 
-        if (pricingData.selectedOption) {
-          return pricingData.selectedOption
-        }
+        console.log("[v0] Parsed pricing data:", pricingData)
 
         if (
           pricingData.hasCleanShowPricing ||
           pricingData.selectedOption?.includes("Clean Show") ||
           pricingData.selectedOption?.includes("Option 4")
         ) {
+          console.log("[v0] Clean Show pricing detected!")
           return "Option 4: Clean Show 2025 Special Pricing"
         }
       }
@@ -359,16 +522,62 @@ export default function QuoteDetailPage() {
         <div className="flex items-center gap-2">
           {!isEditing ? (
             <>
-              <Button variant="outline" onClick={handleEdit}>
+              {console.log("[v0] Rendering admin buttons - isEditing:", isEditing)}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  console.log("[v0] Admin print button clicked")
+                  handlePrint()
+                }}
+                className="bg-blue-500 text-white border-blue-500 hover:bg-blue-600 font-semibold px-4 py-2"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                  />
+                </svg>
+                Print Quote
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  console.log("[v0] Admin PDF button clicked")
+                  generateAdminPDF()
+                }}
+                className="bg-green-500 text-white border-green-500 hover:bg-green-600 font-semibold px-4 py-2"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Generate PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleEdit}
+                className="bg-orange-500 text-white border-orange-500 hover:bg-orange-600 font-semibold px-4 py-2"
+              >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Quote
               </Button>
-              <Button variant="outline" onClick={() => router.back()}>
+              <Button
+                variant="outline"
+                onClick={() => router.back()}
+                className="bg-gray-500 text-white border-gray-500 hover:bg-gray-600 font-semibold px-4 py-2"
+              >
                 Back
               </Button>
             </>
           ) : (
             <>
+              {console.log("[v0] Rendering edit mode buttons - isEditing:", isEditing)}
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
@@ -685,6 +894,7 @@ export default function QuoteDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Pricing Options */}
           <Card>
             <CardHeader>
               <CardTitle>Pricing Options</CardTitle>
@@ -704,7 +914,6 @@ export default function QuoteDetailPage() {
                 </p>
               </div>
 
-              {/* Option 2: Financed Solution */}
               {q.financed_monthly_payment && (
                 <div className="border rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
@@ -714,13 +923,43 @@ export default function QuoteDetailPage() {
                       <p className="text-sm text-muted-foreground">per month for 48 months</p>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Finance your Laundry Boss system at {q.option2_interest_rate || 9}% interest rate.
                   </p>
+
+                  {/* Detailed financing breakdown */}
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Present Value of Monthly Services:</span>
+                      <span>{formatCurrency(calculatePresentValue(q.monthly_recurring || 0))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>One-Time Charges:</span>
+                      <span>{formatCurrency(q.one_time_charges)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-2">
+                      <span>Total to Finance:</span>
+                      <span>
+                        {formatCurrency(calculatePresentValue(q.monthly_recurring || 0) + (q.one_time_charges || 0))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total of Payments (48 months):</span>
+                      <span>{formatCurrency((q.financed_monthly_payment || 0) * 48)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Interest:</span>
+                      <span>
+                        {formatCurrency(
+                          (q.financed_monthly_payment || 0) * 48 -
+                            (calculatePresentValue(q.monthly_recurring || 0) + (q.one_time_charges || 0)),
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Option 3: Monthly Payment Plan */}
               <div className="border rounded-lg p-4">
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="text-lg font-semibold">Option 3: Monthly Payment Plan</h4>
@@ -729,46 +968,219 @@ export default function QuoteDetailPage() {
                     <p className="text-sm text-muted-foreground">per month + one-time setup</p>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mb-4">
                   Low monthly payments with comprehensive service package.
                 </p>
+
+                {/* Detailed service breakdown */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Monthly Services */}
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <h5 className="font-semibold text-purple-800 mb-3">Monthly Recurring Fees</h5>
+                    <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
+                    <div className="space-y-1 text-sm">
+                      {(() => {
+                        const breakdown = getServiceBreakdown(q)
+                        return breakdown.monthlyServices.map((service: any, index: number) => (
+                          <div key={index} className="flex justify-between">
+                            <span>{service.name}</span>
+                            <span>{formatCurrency(service.price)}</span>
+                          </div>
+                        ))
+                      })()}
+                      <div className="border-t pt-1 font-semibold flex justify-between">
+                        <span>Monthly Total</span>
+                        <span className="text-purple-600">{formatCurrency(q.monthly_recurring)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* One-Time Charges */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h5 className="font-semibold text-gray-800 mb-3">One-Time Charges</h5>
+                    <div className="space-y-1 text-sm">
+                      {(() => {
+                        const breakdown = getServiceBreakdown(q)
+                        return breakdown.oneTimeCharges.map((charge: any, index: number) => (
+                          <div key={index} className="flex justify-between">
+                            <span>{charge.name}</span>
+                            <span>{formatCurrency(charge.price)}</span>
+                          </div>
+                        ))
+                      })()}
+                      <div className="border-t pt-1 font-semibold flex justify-between">
+                        <span>One-Time Total</span>
+                        <span className="text-blue-600">{formatCurrency(q.one_time_charges)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 48-Month Investment Summary */}
+                <div className="mt-4 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
+                  <h5 className="font-semibold text-cyan-800 mb-2">48-Month Total Investment</h5>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Monthly Payments (48 × {formatCurrency(q.monthly_recurring)})</span>
+                      <span>{formatCurrency((q.monthly_recurring || 0) * 48)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>One-Time Setup Charges</span>
+                      <span>{formatCurrency(q.one_time_charges)}</span>
+                    </div>
+                    <div className="border-t pt-1 font-semibold flex justify-between text-cyan-800">
+                      <span>Total 48-Month Investment</span>
+                      <span>{formatCurrency((q.monthly_recurring || 0) * 48 + (q.one_time_charges || 0))}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-cyan-600 text-center mt-2">
+                    Comprehensive service package with predictable monthly payments
+                  </p>
+                </div>
               </div>
 
               {(() => {
-                const hasCleanShowPricing =
-                  getPricingOptionName(q).includes("Clean Show") || getPricingOptionName(q).includes("Option 4")
-                if (hasCleanShowPricing) {
-                  try {
-                    const pricingData = q.additional_savings_monthly
-                      ? typeof q.additional_savings_monthly === "string"
-                        ? JSON.parse(q.additional_savings_monthly)
-                        : q.additional_savings_monthly
-                      : null
+                // Always show Clean Show pricing - don't depend on database flags
+                const cleanShowMonthly = (q.monthly_recurring || 0) * 0.8
+                const cleanShowOneTime = (q.one_time_charges || 0) * 0.7
+                const cleanShowTotalPrice = cleanShowMonthly * 48 + cleanShowOneTime
 
-                    const cleanShowTotalPrice =
-                      pricingData?.cleanShowTotalPrice || q.monthly_recurring * 48 * 0.8 + q.one_time_charges * 0.7
+                return (
+                  <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-lg font-semibold text-purple-800">🎉 Option 4: Clean Show 2025 Special</h4>
+                      <div className="text-right">
+                        <p className="text-sm text-purple-600">Limited-time exclusive offer</p>
+                        <p className="text-xs text-purple-500">Expires March 31, 2025</p>
+                      </div>
+                    </div>
 
-                    return (
-                      <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50">
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="text-lg font-semibold text-purple-800">
-                            🎉 Option 4: Clean Show 2025 Special Pricing
-                          </h4>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-purple-600">{formatCurrency(cleanShowTotalPrice)}</p>
-                            <p className="text-sm text-muted-foreground">Total system cost</p>
+                    {/* Special pricing breakdown */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div className="text-center">
+                        <p className="text-purple-600 font-semibold">Special Monthly Rate</p>
+                        <p className="text-2xl font-bold text-purple-600">{formatCurrency(cleanShowMonthly)}</p>
+                        <p className="text-sm text-gray-600">(20% off regular monthly rate)</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-pink-600 font-semibold">Reduced Setup Cost</p>
+                        <p className="text-2xl font-bold text-pink-600">{formatCurrency(cleanShowOneTime)}</p>
+                        <p className="text-sm text-gray-600">(30% off setup costs)</p>
+                      </div>
+                    </div>
+
+                    {/* Detailed Clean Show breakdown */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* Monthly Services with 20% discount */}
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <h5 className="font-semibold text-purple-800 mb-3">Monthly Services (20% Discount)</h5>
+                        <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Washers ({q.num_washers || 0} × $4.00)</span>
+                            <span>{formatCurrency((q.num_washers || 0) * 4)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Dryers ({q.num_dryers || 0} × $4.00)</span>
+                            <span>{formatCurrency((q.num_dryers || 0) * 4)}</span>
+                          </div>
+                          {q.wants_wdf && (
+                            <div className="flex justify-between">
+                              <span>WDF Software License</span>
+                              <span>$80.00</span>
+                            </div>
+                          )}
+                          {q.wants_pickup_delivery && (
+                            <div className="flex justify-between">
+                              <span>Pick Up & Delivery License</span>
+                              <span>$80.00</span>
+                            </div>
+                          )}
+                          {q.ai_attendant && (
+                            <div className="flex justify-between">
+                              <span>AI Attendant Service</span>
+                              <span>$40.00</span>
+                            </div>
+                          )}
+                          {q.ai_integration && (
+                            <div className="flex justify-between">
+                              <span>AI Integration Service</span>
+                              <span>$80.00</span>
+                            </div>
+                          )}
+                          <div className="border-t pt-1 font-semibold flex justify-between">
+                            <span>Monthly Total</span>
+                            <span>{formatCurrency(cleanShowMonthly)}</span>
                           </div>
                         </div>
-                        <p className="text-sm text-purple-600">
-                          Limited-time exclusive offer with 20% discount on monthly services and 30% discount on kiosks.
+                      </div>
+
+                      {/* One-Time Charges with Clean Show pricing */}
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h5 className="font-semibold text-gray-800 mb-3">One-Time Charges (30% Kiosk Discount)</h5>
+                        <div className="space-y-1 text-sm">
+                          {(() => {
+                            const totalMachines = (q.num_washers || 0) + (q.num_dryers || 0)
+                            const qrSheets = Math.ceil(totalMachines / 20)
+                            return (
+                              <>
+                                <div className="flex justify-between">
+                                  <span>Harnesses ({totalMachines} × $25.00)</span>
+                                  <span>{formatCurrency(totalMachines * 25)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>QR Codes</span>
+                                  <span>$150.00</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Sign Package</span>
+                                  <span>$500.00</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Matterport 3D Scan</span>
+                                  <span>$500.00</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>FULL Network Package</span>
+                                  <span>$1,500.00</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Laundry Boss Point of Sale System</span>
+                                  <span>$2,500.00</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Laundry Boss Installation</span>
+                                  <span>$2,000.00</span>
+                                </div>
+                              </>
+                            )
+                          })()}
+                          <div className="border-t pt-1 font-semibold flex justify-between">
+                            <span>One-Time Total</span>
+                            <span>{formatCurrency(cleanShowOneTime)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Clean Show savings summary */}
+                    <div className="mt-4 p-4 bg-purple-100 rounded-lg">
+                      <p className="text-sm text-purple-700 text-center font-medium">
+                        🎉 Clean Show 2025 Exclusive: Save up to{" "}
+                        {formatCurrency((q.monthly_recurring || 0) * 0.2 * 48 + (q.one_time_charges || 0) * 0.3)} over
+                        48 months!
+                      </p>
+                      <p className="text-xs text-purple-600 text-center mt-1">
+                        Same great pricing as our distributors - limited time offer!
+                      </p>
+                      <div className="mt-2 text-center">
+                        <p className="text-lg font-bold text-purple-800">
+                          Total Clean Show Price: {formatCurrency(cleanShowTotalPrice)}
                         </p>
                       </div>
-                    )
-                  } catch (e) {
-                    return null
-                  }
-                }
-                return null
+                    </div>
+                  </div>
+                )
               })()}
 
               {/* Distributor Pricing */}

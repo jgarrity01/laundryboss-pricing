@@ -2,6 +2,7 @@
 import { useState } from "react"
 import { pricingData, calculateInstallationCost, calculateQRCodeCost, calculatePOSSystemCost } from "@/lib/pricing-data"
 import type { QuestionnaireData } from "./questionnaire"
+import jsPDF from "jspdf"
 
 interface PricingCalculatorProps {
   data: QuestionnaireData
@@ -22,6 +23,259 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
       currency: "USD",
       minimumFractionDigits: 2,
     }).format(amount)
+  }
+
+  const generatePDF = async () => {
+    console.log("[v0] PDF generation started")
+    try {
+      const doc = new jsPDF()
+      const pageWidth = doc.internal.pageSize.width
+      const margin = 20
+      let yPosition = 20
+
+      // Helper function to add text with word wrapping
+      const addText = (text: string, x: number, y: number, options: any = {}) => {
+        const maxWidth = options.maxWidth || pageWidth - 2 * margin
+        const lines = doc.splitTextToSize(text, maxWidth)
+        doc.text(lines, x, y)
+        return y + lines.length * (options.lineHeight || 6)
+      }
+
+      console.log("[v0] Building PDF content...")
+
+      // Header
+      doc.setFontSize(20)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Laundry Boss Quote", margin, yPosition)
+      yPosition += 10
+
+      // Customer Information
+      doc.setFontSize(12)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`Customer: ${data.ownerName} | Business: ${data.prospectName}`, margin, yPosition)
+      yPosition = addText(`Email: ${data.customerEmail} | Phone: ${data.customerPhone}`, margin, yPosition)
+      yPosition = addText(`Configuration: ${data.numWashers} Washers, ${data.numDryers} Dryers`, margin, yPosition)
+
+      if (data.wantsWashDryFold || data.wantsPickupDelivery || getSelectedKiosks().length > 0) {
+        const services = []
+        if (data.wantsWashDryFold) services.push("Wash-Dry-Fold")
+        if (data.wantsPickupDelivery) services.push("Pickup & Delivery")
+        if (getSelectedKiosks().length > 0) services.push(`Kiosks: ${getSelectedKiosks().join(", ")}`)
+        yPosition = addText(`Services: ${services.join(" | ")}`, margin, yPosition)
+      }
+      yPosition += 10
+
+      // Revenue Projections
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Revenue Growth Projections", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`Current Monthly Revenue: ${formatCurrency(monthlyRevenueBaseline)}`, margin, yPosition)
+      yPosition = addText(`Projected Monthly Revenue: ${formatCurrency(projectedMonthlyAfterLB)}`, margin, yPosition)
+      yPosition = addText(`Additional Monthly Revenue: ${formatCurrency(addedMonthlyRevenue)}`, margin, yPosition)
+      yPosition = addText(`Additional Annual Revenue: ${formatCurrency(addedAnnualRevenue)}`, margin, yPosition)
+      yPosition += 10
+
+      // Pricing Options
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Pricing Options", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "normal")
+
+      if (isDistributor) {
+        yPosition = addText(`Distributor Pricing: ${formatCurrency(distributorTotalPrice)}`, margin, yPosition)
+        yPosition = addText(
+          "Special distributor pricing with 20% discount on monthly services and 30% discount on kiosks.",
+          margin,
+          yPosition,
+        )
+      } else {
+        yPosition = addText(`Option 1 - Total Price: ${formatCurrency(totalPrice)}`, margin, yPosition)
+        yPosition = addText(
+          `Option 2 - Financed: ${formatCurrency(financedMonthlyPayment)}/month for 48 months`,
+          margin,
+          yPosition,
+        )
+        yPosition = addText(
+          `Option 3 - Monthly Plan: ${formatCurrency(monthlyRecurring)}/month + ${formatCurrency(oneTimeCharges)} setup`,
+          margin,
+          yPosition,
+        )
+        yPosition = addText(`Option 4 - Clean Show Special: ${formatCurrency(cleanShowTotalPrice)}`, margin, yPosition)
+      }
+      yPosition += 10
+
+      // Monthly Recurring Breakdown
+      if (yPosition > 250) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Monthly Recurring Fees", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(
+        `Washers (${data.numWashers}): ${formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price)}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `Dryers (${data.numDryers}): ${formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price)}`,
+        margin,
+        yPosition,
+      )
+
+      if (data.wantsWashDryFold) {
+        yPosition = addText(
+          `WDF Software: ${formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)}`,
+          margin,
+          yPosition,
+        )
+      }
+      if (data.wantsPickupDelivery) {
+        yPosition = addText(
+          `Pickup & Delivery: ${formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)}`,
+          margin,
+          yPosition,
+        )
+      }
+      if (data.hasAiAttendant) {
+        yPosition = addText(
+          `AI Attendant: ${formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}`,
+          margin,
+          yPosition,
+        )
+      }
+      if (data.hasAiAttendantWithIntegration) {
+        yPosition = addText(
+          `AI Integration: ${formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price)}`,
+          margin,
+          yPosition,
+        )
+      }
+
+      doc.setFont(undefined, "bold")
+      yPosition = addText(`Monthly Total: ${formatCurrency(monthlyRecurring)}`, margin, yPosition)
+      yPosition += 10
+
+      // One-Time Charges
+      doc.setFontSize(14)
+      yPosition = addText("One-Time Charges", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`Harnesses: ${formatCurrency((data.numWashers + data.numDryers) * 25)}`, margin, yPosition)
+      yPosition = addText(`QR Codes: ${formatCurrency(qrCodeInfo.totalCost)}`, margin, yPosition)
+      yPosition = addText(`Installation: ${formatCurrency(installationCost)}`, margin, yPosition)
+      yPosition = addText(
+        `Network Package: ${formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `Sign Package: ${formatCurrency(pricingData.oneTimeCharges.signPackage.price)}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `Matterport 3D: ${formatCurrency(pricingData.oneTimeCharges.matterport3D.price)}`,
+        margin,
+        yPosition,
+      )
+
+      if (posSystemCost > 0) {
+        yPosition = addText(`POS System: ${formatCurrency(posSystemCost)}`, margin, yPosition)
+      }
+
+      // Kiosks
+      if (getSelectedKiosks().length > 0) {
+        if (data.kioskOptions.rearLoad.selected) {
+          yPosition = addText(
+            `Rear Load Kiosks (${data.kioskOptions.rearLoad.quantity}): ${formatCurrency(pricingData.kioskOptions.rearLoadKiosk.price * data.kioskOptions.rearLoad.quantity)}`,
+            margin,
+            yPosition,
+          )
+        }
+        if (data.kioskOptions.frontLoad.selected) {
+          yPosition = addText(
+            `Front Load Kiosks (${data.kioskOptions.frontLoad.quantity}): ${formatCurrency(pricingData.kioskOptions.frontLoadKiosk.price * data.kioskOptions.frontLoad.quantity)}`,
+            margin,
+            yPosition,
+          )
+        }
+        if (data.kioskOptions.creditBill.selected) {
+          yPosition = addText(
+            `Credit Bill Kiosks (${data.kioskOptions.creditBill.quantity}): ${formatCurrency(pricingData.kioskOptions.creditBillKiosk.price * data.kioskOptions.creditBill.quantity)}`,
+            margin,
+            yPosition,
+          )
+        }
+        if (data.kioskOptions.creditOnly.selected) {
+          yPosition = addText(
+            `Credit Only Kiosks (${data.kioskOptions.creditOnly.quantity}): ${formatCurrency(pricingData.kioskOptions.creditOnlyKiosk.price * data.kioskOptions.creditOnly.quantity)}`,
+            margin,
+            yPosition,
+          )
+        }
+      }
+
+      doc.setFont(undefined, "bold")
+      yPosition = addText(`One-Time Total: ${formatCurrency(oneTimeCharges)}`, margin, yPosition)
+      yPosition += 10
+
+      // Footer
+      yPosition = addText("Generated by Laundry Boss Pricing Calculator", margin, yPosition)
+      yPosition = addText(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition)
+
+      // Save PDF
+      const fileName = `LaundryBoss_Quote_${data.prospectName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
+      console.log("[v0] Saving PDF with filename:", fileName)
+      doc.save(fileName)
+
+      // Save PDF reference to database
+      console.log("[v0] Saving PDF reference to database...")
+      try {
+        const response = await fetch("/api/quotes/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerEmail: data.customerEmail,
+            prospectName: data.prospectName,
+            fileName: fileName,
+            quoteData: data,
+          }),
+        })
+
+        const result = await response.json()
+        console.log("[v0] PDF reference save result:", result)
+
+        if (response.ok) {
+          console.log("[v0] PDF generated and saved successfully!")
+        } else {
+          console.error("[v0] Failed to save PDF reference:", result)
+        }
+      } catch (error) {
+        console.error("[v0] Error saving PDF reference:", error)
+      }
+    } catch (error) {
+      console.error("[v0] Error generating PDF:", error)
+      alert("Failed to generate PDF. Please try again.")
+    }
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   const isDistributor = data.distributorName.trim() !== ""
@@ -198,6 +452,37 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
             {data.wantsPickupDelivery && " | Pickup & Delivery"}
             {getSelectedKiosks().length > 0 && ` | Kiosks: ${getSelectedKiosks().join(", ")}`}
           </p>
+        </div>
+
+        <div className="flex justify-center gap-4 mt-6">
+          <button
+            onClick={generatePDF}
+            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            Download PDF
+          </button>
+          <button
+            onClick={handlePrint}
+            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+              />
+            </svg>
+            Print Quote
+          </button>
         </div>
       </div>
 
@@ -945,6 +1230,18 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           Generate New Quote
+        </button>
+        <button
+          onClick={generatePDF}
+          className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          📄 Download PDF
+        </button>
+        <button
+          onClick={handlePrint}
+          className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+        >
+          🖨️ Print Quote
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -119,5 +119,41 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Added print styles for better quote printing */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .print-break {
+    page-break-before: always;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+
+  /* Hide interactive elements when printing */
+  button,
+  input[type="range"],
+  .hover\:bg-gray-50:hover {
+    display: none !important;
+  }
+
+  /* Ensure good contrast for printing */
+  .bg-blue-50,
+  .bg-green-50,
+  .bg-purple-50,
+  .bg-orange-50 {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
   }
 }
