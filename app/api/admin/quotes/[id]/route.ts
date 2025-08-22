@@ -178,3 +178,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: e?.message ?? "Unexpected error" }, { status: 500 })
   }
 }
+
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  try {
+    const supabase = await createClient()
+
+    // First, delete any related quote revisions
+    await supabase.from("quote_revisions").delete().eq("quote_id", params.id)
+
+    // Then delete the quote itself
+    const { error } = await supabase.from("quotes").delete().eq("id", params.id)
+
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json({ success: true, message: "Quote deleted successfully" })
+  } catch (e: any) {
+    console.error("Error deleting quote:", e)
+    return NextResponse.json({ error: e?.message ?? "Unexpected error" }, { status: 500 })
+  }
+}
