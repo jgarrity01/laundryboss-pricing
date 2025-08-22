@@ -101,6 +101,12 @@ export default function QuoteDetailPage() {
   const generateAdminPDF = async () => {
     console.log("[v0] Admin PDF generation started for quote:", data?.quote.id)
     try {
+      if (typeof jsPDF === "undefined") {
+        console.error("[v0] jsPDF is not available")
+        alert("PDF generation library not loaded. Please refresh the page and try again.")
+        return
+      }
+
       const doc = new jsPDF()
       const pageWidth = doc.internal.pageSize.width
       const margin = 20
@@ -225,7 +231,20 @@ export default function QuoteDetailPage() {
 
       const fileName = `LaundryBoss_Quote_${(data?.quote.prospect_name || "Quote").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
       console.log("[v0] Admin PDF generated successfully:", fileName)
-      doc.save(fileName)
+
+      try {
+        console.log("[v0] Attempting to download PDF:", fileName)
+        doc.save(fileName)
+        console.log("[v0] PDF download triggered successfully")
+
+        setTimeout(() => {
+          alert(`PDF "${fileName}" has been generated and should download automatically. Check your Downloads folder.`)
+        }, 500)
+      } catch (downloadError) {
+        console.error("[v0] Error downloading PDF:", downloadError)
+        alert("PDF was generated but download failed. Please try again.")
+        return
+      }
 
       try {
         const response = await fetch("/api/quotes/pdf", {
