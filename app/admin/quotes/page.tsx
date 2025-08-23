@@ -471,26 +471,46 @@ const QuoteDisplay = ({ quote, onDelete, onUpdate }: QuoteDisplayProps) => {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Option 1: Total Price */}
               <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
                 <CardHeader>
-                  <CardTitle className="text-center text-xl text-cyan-700">Option 1: Total Price</CardTitle>
-                  <p className="text-sm text-gray-600 text-center">One-time payment for complete solution</p>
+                  <CardTitle className="text-center text-xl">Option 1: Monthly Payment Plan</CardTitle>
+                  <p className="text-sm text-gray-600 text-center">
+                    Low monthly payments with comprehensive service package
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center space-y-4">
-                    <div className="bg-white rounded-lg p-6 border-2 border-cyan-200">
-                      <p className="text-cyan-600 font-semibold text-lg mb-2">Total Price</p>
-                      <p className="text-4xl font-bold text-cyan-600 mb-2">
-                        {formatCurrency(quote.total_price_option1)}
-                      </p>
-                      <p className="text-sm text-gray-600">One-time payment • No monthly fees</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center mb-4">
+                    <div>
+                      <p className="text-cyan-600 font-semibold">Monthly Recurring</p>
+                      <p className="text-2xl font-bold text-cyan-600">{formatCurrency(quote.monthly_recurring)}</p>
+                      <p className="text-sm text-gray-600">(48-month contract)</p>
+                    </div>
+                    <div>
+                      <p className="text-cyan-600 font-semibold">One-Time Setup</p>
+                      <p className="text-2xl font-bold text-cyan-600">{formatCurrency(quote.one_time_charges)}</p>
+                      <p className="text-sm text-gray-600">Initial setup costs</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border-2 border-cyan-200">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="font-semibold text-gray-700">First Month Total</p>
+                        <p>{formatCurrency((quote.monthly_recurring || 0) + (quote.one_time_charges || 0))}</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-700">Months 2-48</p>
+                        <p>{formatCurrency(quote.monthly_recurring)} each</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-700">48-Month Total</p>
+                        <p>{formatCurrency((quote.monthly_recurring || 0) * 48 + (quote.one_time_charges || 0))}</p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Option 2: Financed */}
+              {/* Option 2: Financed (unchanged position) */}
               <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
                 <CardHeader>
                   <CardTitle className="text-center text-xl text-cyan-700">Option 2: Financed Solution</CardTitle>
@@ -553,159 +573,19 @@ const QuoteDisplay = ({ quote, onDelete, onUpdate }: QuoteDisplayProps) => {
                 </CardContent>
               </Card>
 
-              {/* Option 3: Monthly Plan */}
               <Card className="bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200">
                 <CardHeader>
-                  <CardTitle className="text-center text-xl">Option 3: Monthly Payment Plan</CardTitle>
-                  <p className="text-sm text-gray-600 text-center">
-                    Low monthly payments with comprehensive service package
-                  </p>
+                  <CardTitle className="text-center text-xl text-cyan-700">Option 4: Total Price</CardTitle>
+                  <p className="text-sm text-gray-600 text-center">One-time payment for complete solution</p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center mb-4">
-                    <div>
-                      <p className="text-cyan-600 font-semibold">Monthly Recurring</p>
-                      <p className="text-2xl font-bold text-cyan-600">{formatCurrency(quote.monthly_recurring)}</p>
-                      <p className="text-sm text-gray-600">(48-month contract)</p>
-                    </div>
-                    <div>
-                      <p className="text-blue-600 font-semibold">One-Time Setup</p>
-                      <p className="text-2xl font-bold text-blue-600">{formatCurrency(quote.one_time_charges)}</p>
-                      <p className="text-sm text-gray-600">(Upfront payment)</p>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6 mb-4">
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <h4 className="font-semibold text-purple-800 mb-3">Monthly Recurring Fees</h4>
-                      <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span>Washers ({quote.num_washers || 0} × $5.00)</span>
-                          <span>{formatCurrency((quote.num_washers || 0) * 5)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Dryers ({quote.num_dryers || 0} × $5.00)</span>
-                          <span>{formatCurrency((quote.num_dryers || 0) * 5)}</span>
-                        </div>
-                        {(quote.wants_wash_dry_fold || quote.wants_wdf) && (
-                          <div className="flex justify-between">
-                            <span>WDF Software License</span>
-                            <span>{formatCurrency(100)}</span>
-                          </div>
-                        )}
-                        {quote.wants_pickup_delivery && (
-                          <div className="flex justify-between">
-                            <span>Pick Up & Delivery License</span>
-                            <span>{formatCurrency(100)}</span>
-                          </div>
-                        )}
-                        {quote.ai_attendant && (
-                          <div className="flex justify-between">
-                            <span>AI Attendant Service</span>
-                            <span>{formatCurrency(50)}</span>
-                          </div>
-                        )}
-                        {quote.ai_integration && (
-                          <div className="flex justify-between">
-                            <span>AI Integration Service</span>
-                            <span>{formatCurrency(100)}</span>
-                          </div>
-                        )}
-                        <Separator />
-                        <div className="flex justify-between font-bold text-lg">
-                          <span>Monthly Total</span>
-                          <span className="text-cyan-600">{formatCurrency(quote.monthly_recurring)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* One-Time Charges */}
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-semibold text-gray-800 mb-3">One-Time Charges</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span>Harnesses ({totalMachines} × $25.00)</span>
-                          <span>{formatCurrency(totalMachines * 25)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>QR Codes</span>
-                          <span>{formatCurrency(qrCodeInfo.totalCost)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Sign Package</span>
-                          <span>{formatCurrency(140)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Matterport 3D Scan</span>
-                          <span>{formatCurrency(350)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>FULL Network Package</span>
-                          <span>{formatCurrency(1875)}</span>
-                        </div>
-                        {posSystemFee > 0 && (
-                          <div className="flex justify-between">
-                            <span>Laundry Boss Point of Sale System</span>
-                            <span>{formatCurrency(posSystemFee)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span>Laundry Boss Installation</span>
-                          <span>
-                            {formatCurrency(
-                              (quote.one_time_charges || 0) -
-                                totalMachines * 25 -
-                                qrCodeInfo.totalCost -
-                                140 -
-                                350 -
-                                1875 -
-                                posSystemFee,
-                            )}
-                          </span>
-                        </div>
-                        {quote.self_install && (
-                          <div className="text-xs text-gray-500 -mt-2 ml-4">Self-install with assistance</div>
-                        )}
-                        {!quote.self_install && (
-                          <div className="text-xs text-gray-500 -mt-2 ml-4">
-                            Full installation service ({totalMachines} machines)
-                          </div>
-                        )}
-                        <Separator />
-                        <div className="flex justify-between font-bold text-lg">
-                          <span>One-Time Total</span>
-                          <span className="text-blue-600">{formatCurrency(quote.one_time_charges)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 p-3 bg-purple-100 rounded">
-                    <p className="text-purple-800 font-medium">
-                      💰 Total System Cost: {formatCurrency(quote.total_price_option1)}
-                    </p>
-                    <div className="mt-3 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                      <h4 className="font-semibold text-cyan-800 mb-2">48-Month Total Investment</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span>Monthly Payments (48 × {formatCurrency(quote.monthly_recurring)})</span>
-                          <span>{formatCurrency((quote.monthly_recurring || 0) * 48)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>One-Time Setup Charges</span>
-                          <span>{formatCurrency(quote.one_time_charges)}</span>
-                        </div>
-                        <div className="border-t pt-1 font-semibold flex justify-between text-cyan-800">
-                          <span>Total 48-Month Investment</span>
-                          <span>
-                            {formatCurrency((quote.monthly_recurring || 0) * 48 + (quote.one_time_charges || 0))}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-cyan-600 text-center mt-2">
-                        Comprehensive service package with predictable monthly payments
+                  <div className="text-center space-y-4">
+                    <div className="bg-white rounded-lg p-6 border-2 border-cyan-200">
+                      <p className="text-cyan-600 font-semibold text-lg mb-2">Total Price</p>
+                      <p className="text-4xl font-bold text-cyan-600 mb-2">
+                        {formatCurrency(quote.total_price_option1)}
                       </p>
+                      <p className="text-sm text-gray-600">One-time payment • No monthly fees</p>
                     </div>
                   </div>
                 </CardContent>

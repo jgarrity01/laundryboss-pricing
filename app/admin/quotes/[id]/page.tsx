@@ -1058,9 +1058,48 @@ export default function QuoteDetailPage() {
             </div>
           </div>
 
+          {/* Revenue Growth Projections */}
           <Card>
             <CardHeader>
-              <CardTitle>📈 Revenue Impact Overview</CardTitle>
+              <CardTitle className="text-center text-xl">Revenue Growth Projections</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <h4 className="text-center font-semibold text-blue-800 mb-2">Current Revenue</h4>
+                  <p className="text-2xl font-bold text-blue-600">{formatCurrency(q.monthly_base_revenue || 0)}</p>
+                  <p className="text-sm text-blue-600">per month</p>
+                </div>
+
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <h4 className="text-center font-semibold text-green-800 mb-2">Projected - Laundry Boss</h4>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency((q.monthly_base_revenue || 0) * 1.153)}
+                  </p>
+                  <p className="text-sm text-green-600">per month</p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <h4 className="text-center font-semibold text-purple-800 mb-2">Additional Revenue</h4>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {formatCurrency((q.monthly_base_revenue || 0) * 0.153)}
+                  </p>
+                  <p className="text-sm text-purple-600">per month</p>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <h4 className="text-center font-semibold text-orange-800 mb-2">Operational Savings</h4>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {formatCurrency(((5500 / 30) * ((q.num_washers || 0) + (q.num_dryers || 0))) / 12)}
+                  </p>
+                  <p className="text-sm text-orange-600">per month</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Revenue Impact Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-center text-xl">Revenue Impact Overview</CardTitle>
             </CardHeader>
             <CardContent>
               {(() => {
@@ -1113,353 +1152,359 @@ export default function QuoteDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Why Laundry Boss is a Perfect Fit */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-center text-xl">Why Laundry Boss is a Perfect Fit</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <ul className="text-sm text-green-700 space-y-2 text-center">
+                  <li>• Proven track record of 15.3% average revenue increase</li>
+                  <li>• Smart monitoring reduces equipment downtime</li>
+                  <li>• Enhanced customer experience drives repeat business</li>
+                  <li>• Real-time analytics help optimize operations</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Pricing Options */}
           <Card>
             <CardHeader>
-              <CardTitle>Pricing Options</CardTitle>
+              <CardTitle className="text-center text-xl">Pricing Options</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Option 1: Total Price */}
-              <div className="border rounded-lg p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-lg font-semibold">Option 1: Total Price</h4>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">{formatCurrency(q.total_price_option1)}</p>
-                    <p className="text-sm text-muted-foreground">One-time payment</p>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Pay the full amount upfront and own your Laundry Boss system immediately.
-                </p>
-              </div>
 
+            <CardContent className="space-y-6">
               {q.financed_monthly_payment && (
                 <div className="border rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-lg font-semibold">Option 2: Financed Solution</h4>
+                    <h4 className="text-lg font-semibold">Option 1: Financed Solution</h4>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-green-600">{formatCurrency(q.financed_monthly_payment)}</p>
                       <p className="text-sm text-muted-foreground">per month for 48 months</p>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Finance your Laundry Boss system at {q.option2_interest_rate || 9}% interest rate.
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Finance your Laundry Boss system with competitive rates.
                   </p>
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800">
+                      Show Details
+                    </summary>
 
-                  {/* Detailed financing breakdown */}
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Present Value of Monthly Services:</span>
-                      <span>{formatCurrency(calculatePresentValue(q.monthly_recurring || 0))}</span>
+                    <div className="mt-3 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-3 rounded">
+                          <h5 className="font-semibold mb-2">Monthly Recurring Fees (48-month contract)</h5>
+                          <div className="text-sm space-y-1">
+                            <div>
+                              Washers ({q.num_washers} × $49.00): {formatCurrency((q.num_washers || 0) * 49)}
+                            </div>
+                            <div>
+                              Dryers ({q.num_dryers} × $39.00): {formatCurrency((q.num_dryers || 0) * 39)}
+                            </div>
+                            {q.wants_wash_dry_fold && <div>WDF Software License: $199.00</div>}
+                            {q.wants_pickup_delivery && <div>Pick Up & Delivery License: $299.00</div>}
+                            {q.has_ai_attendant && <div>AI Attendant Service: $199.00</div>}
+                            {q.has_ai_attendant_with_integration && <div>AI Integration Service: $399.00</div>}
+                            <div className="font-semibold border-t pt-1">
+                              Monthly Total: {formatCurrency(q.monthly_recurring)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-3 rounded">
+                          <h5 className="font-semibold mb-2">One-Time Charges</h5>
+                          <div className="text-sm space-y-1">
+                            <div>
+                              Harnesses ({(q.num_washers || 0) + (q.num_dryers || 0)} × $25.00):{" "}
+                              {formatCurrency(((q.num_washers || 0) + (q.num_dryers || 0)) * 25)}
+                            </div>
+                            <div>QR Codes: $150.00</div>
+                            <div>Sign Package: $499.00</div>
+                            <div>Matterport 3D Scan: $299.00</div>
+                            <div>FULL Network Package: $1,999.00</div>
+                            <div>Laundry Boss Point of Sale System: $1,999.00</div>
+                            <div>Laundry Boss Installation: {formatCurrency(q.self_install ? 999 : 1999)}</div>
+                            <div className="font-semibold border-t pt-1">
+                              One-Time Total: {formatCurrency(q.one_time_charges)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Amount Financed:</span>
+                          <span className="ml-2 font-medium">{formatCurrency(q.total_to_finance || 0)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Interest Rate:</span>
+                          <span className="ml-2 font-medium">{q.option2_interest_rate || 9}%</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total of Payments:</span>
+                          <span className="ml-2 font-medium">
+                            {formatCurrency((q.financed_monthly_payment || 0) * 48)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total Interest:</span>
+                          <span className="ml-2 font-medium">
+                            {formatCurrency((q.financed_monthly_payment || 0) * 48 - (q.total_to_finance || 0))}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>One-Time Charges:</span>
-                      <span>{formatCurrency(q.one_time_charges)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold border-t pt-2">
-                      <span>Total to Finance:</span>
-                      <span>
-                        {formatCurrency(calculatePresentValue(q.monthly_recurring || 0) + (q.one_time_charges || 0))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total of Payments (48 months):</span>
-                      <span>{formatCurrency((q.financed_monthly_payment || 0) * 48)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Interest:</span>
-                      <span>
-                        {formatCurrency(
-                          (q.financed_monthly_payment || 0) * 48 -
-                            (calculatePresentValue(q.monthly_recurring || 0) + (q.one_time_charges || 0)),
-                        )}
-                      </span>
-                    </div>
-                  </div>
+                  </details>
                 </div>
               )}
 
               <div className="border rounded-lg p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-lg font-semibold">Option 3: Monthly Payment Plan</h4>
+                  <h4 className="text-lg font-semibold">Option 2: BOSS HybridPay</h4>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-purple-600">{formatCurrency(q.monthly_recurring)}</p>
                     <p className="text-sm text-muted-foreground">per month + one-time setup</p>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   Low monthly payments with comprehensive service package.
                 </p>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800">
+                    Show Details
+                  </summary>
 
-                {/* Detailed service breakdown */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  {/* Monthly Services */}
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h5 className="font-semibold text-purple-800 mb-3">Monthly Recurring Fees</h5>
-                    <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
-                    <div className="space-y-1 text-sm">
-                      {(() => {
-                        const breakdown = getServiceBreakdown(q)
-                        return breakdown.monthlyServices.map((service: any, index: number) => (
-                          <div key={index} className="flex justify-between">
-                            <span>{service.name}</span>
-                            <span>{formatCurrency(service.price)}</span>
+                  <div className="mt-3 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 p-3 rounded">
+                        <h5 className="font-semibold mb-2">Monthly Recurring Fees (48-month contract)</h5>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            Washers ({q.num_washers} × $49.00): {formatCurrency((q.num_washers || 0) * 49)}
                           </div>
-                        ))
-                      })()}
-                      <div className="border-t pt-1 font-semibold flex justify-between">
-                        <span>Monthly Total</span>
-                        <span className="text-purple-600">{formatCurrency(q.monthly_recurring)}</span>
+                          <div>
+                            Dryers ({q.num_dryers} × $39.00): {formatCurrency((q.num_dryers || 0) * 39)}
+                          </div>
+                          {q.wants_wash_dry_fold && <div>WDF Software License: $199.00</div>}
+                          {q.wants_pickup_delivery && <div>Pick Up & Delivery License: $299.00</div>}
+                          {q.has_ai_attendant && <div>AI Attendant Service: $199.00</div>}
+                          {q.has_ai_attendant_with_integration && <div>AI Integration Service: $399.00</div>}
+                          <div className="font-semibold border-t pt-1">
+                            Monthly Total: {formatCurrency(q.monthly_recurring)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 p-3 rounded">
+                        <h5 className="font-semibold mb-2">One-Time Charges</h5>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            Harnesses ({(q.num_washers || 0) + (q.num_dryers || 0)} × $25.00):{" "}
+                            {formatCurrency(((q.num_washers || 0) + (q.num_dryers || 0)) * 25)}
+                          </div>
+                          <div>QR Codes: $150.00</div>
+                          <div>Sign Package: $499.00</div>
+                          <div>Matterport 3D Scan: $299.00</div>
+                          <div>FULL Network Package: $1,999.00</div>
+                          <div>Laundry Boss Point of Sale System: $1,999.00</div>
+                          <div>Laundry Boss Installation: {formatCurrency(q.self_install ? 999 : 1999)}</div>
+                          <div className="font-semibold border-t pt-1">
+                            One-Time Total: {formatCurrency(q.one_time_charges)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Monthly Recurring:</span>
+                        <span className="ml-2 font-medium">{formatCurrency(q.monthly_recurring)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">One-Time Setup:</span>
+                        <span className="ml-2 font-medium">{formatCurrency(q.one_time_charges)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Total First Month:</span>
+                        <span className="ml-2 font-medium">
+                          {formatCurrency((q.monthly_recurring || 0) + (q.one_time_charges || 0))}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">48-Month Total:</span>
+                        <span className="ml-2 font-medium">
+                          {formatCurrency((q.monthly_recurring || 0) * 48 + (q.one_time_charges || 0))}
+                        </span>
                       </div>
                     </div>
                   </div>
-
-                  {/* One-Time Charges */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h5 className="font-semibold text-gray-800 mb-3">One-Time Charges</h5>
-                    <div className="space-y-1 text-sm">
-                      {(() => {
-                        const breakdown = getServiceBreakdown(q)
-                        return breakdown.oneTimeCharges.map((charge: any, index: number) => (
-                          <div key={index} className="flex justify-between">
-                            <span>{charge.name}</span>
-                            <span>{formatCurrency(charge.price)}</span>
-                          </div>
-                        ))
-                      })()}
-                      <div className="border-t pt-1 font-semibold flex justify-between">
-                        <span>One-Time Total</span>
-                        <span className="text-blue-600">{formatCurrency(q.one_time_charges)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 48-Month Investment Summary */}
-                <div className="mt-4 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
-                  <h5 className="font-semibold text-cyan-800 mb-2">48-Month Total Investment</h5>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Monthly Payments (48 × {formatCurrency(q.monthly_recurring)})</span>
-                      <span>{formatCurrency((q.monthly_recurring || 0) * 48)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>One-Time Setup Charges</span>
-                      <span>{formatCurrency(q.one_time_charges)}</span>
-                    </div>
-                    <div className="border-t pt-1 font-semibold flex justify-between text-cyan-800">
-                      <span>Total 48-Month Investment</span>
-                      <span>{formatCurrency((q.monthly_recurring || 0) * 48 + (q.one_time_charges || 0))}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-cyan-600 text-center mt-2">
-                    Comprehensive service package with predictable monthly payments
-                  </p>
-                </div>
+                </details>
               </div>
 
-              {(() => {
-                // Always show Clean Show pricing - don't depend on database flags
-                const cleanShowMonthly = (q.monthly_recurring || 0) * 0.8
-                const cleanShowOneTime = (q.one_time_charges || 0) * 0.7
-                const cleanShowTotalPrice = cleanShowMonthly * 48 + cleanShowOneTime
-
-                return (
-                  <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-lg font-semibold text-purple-800">🎉 Option 4: Clean Show 2025 Special</h4>
-                      <div className="text-right">
-                        <p className="text-sm text-purple-600">Limited-time exclusive offer</p>
-                        <p className="text-xs text-purple-500">Expires March 31, 2025</p>
-                      </div>
-                    </div>
-
-                    {/* Special pricing breakdown */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="text-center">
-                        <p className="text-purple-600 font-semibold">Special Monthly Rate</p>
-                        <p className="text-2xl font-bold text-purple-600">{formatCurrency(cleanShowMonthly)}</p>
-                        <p className="text-sm text-gray-600">(20% off regular monthly rate)</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-pink-600 font-semibold">Reduced Setup Cost</p>
-                        <p className="text-2xl font-bold text-pink-600">{formatCurrency(cleanShowOneTime)}</p>
-                        <p className="text-sm text-gray-600">(30% off setup costs)</p>
-                      </div>
-                    </div>
-
-                    {/* Detailed Clean Show breakdown */}
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* Monthly Services with 20% discount */}
-                      <div className="bg-purple-50 rounded-lg p-4">
-                        <h5 className="font-semibold text-purple-800 mb-3">Monthly Services (20% Discount)</h5>
-                        <p className="text-sm text-gray-600 mb-2">Based on 48-month contract</p>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span>Washers ({q.num_washers || 0} × $4.00)</span>
-                            <span>{formatCurrency((q.num_washers || 0) * 4)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Dryers ({q.num_dryers || 0} × $4.00)</span>
-                            <span>{formatCurrency((q.num_dryers || 0) * 4)}</span>
-                          </div>
-                          {q.wants_wdf && (
-                            <div className="flex justify-between">
-                              <span>WDF Software License</span>
-                              <span>$80.00</span>
-                            </div>
-                          )}
-                          {q.wants_pickup_delivery && (
-                            <div className="flex justify-between">
-                              <span>Pick Up & Delivery License</span>
-                              <span>$80.00</span>
-                            </div>
-                          )}
-                          {q.ai_attendant && (
-                            <div className="flex justify-between">
-                              <span>AI Attendant Service</span>
-                              <span>$40.00</span>
-                            </div>
-                          )}
-                          {q.ai_integration && (
-                            <div className="flex justify-between">
-                              <span>AI Integration Service</span>
-                              <span>$80.00</span>
-                            </div>
-                          )}
-                          <div className="border-t pt-1 font-semibold flex justify-between">
-                            <span>Monthly Total</span>
-                            <span>{formatCurrency(cleanShowMonthly)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* One-Time Charges with Clean Show pricing */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h5 className="font-semibold text-gray-800 mb-3">One-Time Charges (30% Kiosk Discount)</h5>
-                        <div className="space-y-1 text-sm">
-                          {(() => {
-                            const totalMachines = (q.num_washers || 0) + (q.num_dryers || 0)
-                            const qrSheets = Math.ceil(totalMachines / 20)
-                            return (
-                              <>
-                                <div className="flex justify-between">
-                                  <span>Harnesses ({totalMachines} × $25.00)</span>
-                                  <span>{formatCurrency(totalMachines * 25)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>QR Codes</span>
-                                  <span>$150.00</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Sign Package</span>
-                                  <span>$500.00</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Matterport 3D Scan</span>
-                                  <span>$500.00</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>FULL Network Package</span>
-                                  <span>$1,500.00</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Laundry Boss Point of Sale System</span>
-                                  <span>$2,500.00</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Laundry Boss Installation</span>
-                                  <span>$2,000.00</span>
-                                </div>
-                              </>
-                            )
-                          })()}
-                          <div className="border-t pt-1 font-semibold flex justify-between">
-                            <span>One-Time Total</span>
-                            <span>{formatCurrency(cleanShowOneTime)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Clean Show savings summary */}
-                    <div className="mt-4 p-4 bg-purple-100 rounded-lg">
-                      <p className="text-sm text-purple-700 text-center font-medium">
-                        🎉 Clean Show 2025 Exclusive: Save up to{" "}
-                        {formatCurrency((q.monthly_recurring || 0) * 0.2 * 48 + (q.one_time_charges || 0) * 0.3)} over
-                        48 months!
-                      </p>
-                      <p className="text-xs text-purple-600 text-center mt-1">
-                        Same great pricing as our distributors - limited time offer!
-                      </p>
-                      <div className="mt-2 text-center">
-                        <p className="text-lg font-bold text-purple-800">
-                          Total Clean Show Price: {formatCurrency(cleanShowTotalPrice)}
-                        </p>
-                      </div>
-                    </div>
+              <div className="border rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-lg font-semibold">Option 3: Total Price</h4>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600">{formatCurrency(q.total_price_option1)}</p>
+                    <p className="text-sm text-muted-foreground">One-time payment</p>
                   </div>
-                )
-              })()}
-
-              {/* Distributor Pricing */}
-              {(q.distributor || (q.distributor_name && q.distributor_name.trim() !== "")) && (
-                <div className="border rounded-lg p-4 bg-gradient-to-r from-yellow-50 to-orange-50">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-lg font-semibold text-orange-800">🏆 Distributor Pricing</h4>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-orange-600">{formatCurrency(q.total_price_option1)}</p>
-                      <p className="text-sm text-muted-foreground">Total system cost</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-orange-600">Exclusive pricing for {q.distributor_name || "distributor"}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Pay the full amount upfront and own your Laundry Boss system immediately.
+                </p>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800">
+                    Show Details
+                  </summary>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(() => {
-                const breakdown = getServiceBreakdown(q)
-                return (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium mb-3">Monthly Services</h4>
-                      <div className="space-y-2 text-sm">
-                        {breakdown.monthlyServices.map((service, index) => (
-                          <div key={index} className="flex justify-between">
-                            <span>{service.name}</span>
-                            <span>{formatCurrency(service.price)}</span>
+                  <div className="mt-3 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 p-3 rounded">
+                        <h5 className="font-semibold mb-2">Monthly Recurring Fees (48-month contract)</h5>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            Washers ({q.num_washers} × $49.00): {formatCurrency((q.num_washers || 0) * 49)}
                           </div>
-                        ))}
-                        <div className="flex justify-between font-medium pt-2 border-t">
-                          <span>Total Monthly:</span>
-                          <span>{formatCurrency(q.monthly_recurring)}</span>
+                          <div>
+                            Dryers ({q.num_dryers} × $39.00): {formatCurrency((q.num_dryers || 0) * 39)}
+                          </div>
+                          {q.wants_wash_dry_fold && <div>WDF Software License: $199.00</div>}
+                          {q.wants_pickup_delivery && <div>Pick Up & Delivery License: $299.00</div>}
+                          {q.has_ai_attendant && <div>AI Attendant Service: $199.00</div>}
+                          {q.has_ai_attendant_with_integration && <div>AI Integration Service: $399.00</div>}
+                          <div className="font-semibold border-t pt-1">
+                            Monthly Total: {formatCurrency(q.monthly_recurring)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 p-3 rounded">
+                        <h5 className="font-semibold mb-2">One-Time Charges</h5>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            Harnesses ({(q.num_washers || 0) + (q.num_dryers || 0)} × $25.00):{" "}
+                            {formatCurrency(((q.num_washers || 0) + (q.num_dryers || 0)) * 25)}
+                          </div>
+                          <div>QR Codes: $150.00</div>
+                          <div>Sign Package: $499.00</div>
+                          <div>Matterport 3D Scan: $299.00</div>
+                          <div>FULL Network Package: $1,999.00</div>
+                          <div>Laundry Boss Point of Sale System: $1,999.00</div>
+                          <div>Laundry Boss Installation: {formatCurrency(q.self_install ? 999 : 1999)}</div>
+                          <div className="font-semibold border-t pt-1">
+                            One-Time Total: {formatCurrency(q.one_time_charges)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div>
-                      <h4 className="font-medium mb-3">One-Time Charges</h4>
-                      <div className="space-y-2 text-sm">
-                        {breakdown.oneTimeCharges.map((charge, index) => (
-                          <div key={index} className="flex justify-between">
-                            <span>{charge.name}</span>
-                            <span>{formatCurrency(charge.price)}</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between font-medium pt-2 border-t">
-                          <span>Total One-Time:</span>
-                          <span>{formatCurrency(q.one_time_charges)}</span>
+
+                    <div className="text-sm">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-muted-foreground">Total Investment:</span>
+                          <span className="ml-2 font-medium">{formatCurrency(q.total_price_option1)}</span>
                         </div>
+                        <div>
+                          <span className="text-muted-foreground">Ownership:</span>
+                          <span className="ml-2 font-medium">Immediate</span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        No monthly payments, no interest charges - you own the system outright.
+                      </p>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-lg font-semibold text-purple-800">Option 4: Clean Show 2025 Special</h4>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-purple-600">
+                      {formatCurrency(
+                        q.clean_show_total_price ||
+                          (q.monthly_recurring || 0) * 0.8 * 48 + (q.one_time_charges || 0) * 0.7,
+                      )}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Limited-time offer</p>
+                  </div>
+                </div>
+                <p className="text-sm text-purple-600 mb-3">
+                  Same exclusive pricing as our distributors - 20% off monthly services, 30% off kiosks!
+                </p>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-medium text-purple-600 hover:text-purple-800">
+                    Show Details
+                  </summary>
+
+                  <div className="mt-3 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-purple-50 p-3 rounded">
+                        <h5 className="font-semibold mb-2 text-purple-800">Monthly Recurring Fees (Discounted 20%)</h5>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            Washers ({q.num_washers} × $39.20): {formatCurrency((q.num_washers || 0) * 39.2)}
+                          </div>
+                          <div>
+                            Dryers ({q.num_dryers} × $31.20): {formatCurrency((q.num_dryers || 0) * 31.2)}
+                          </div>
+                          {q.wants_wash_dry_fold && <div>WDF Software License: $159.20</div>}
+                          {q.wants_pickup_delivery && <div>Pick Up & Delivery License: $239.20</div>}
+                          {q.has_ai_attendant && <div>AI Attendant Service: $159.20</div>}
+                          {q.has_ai_attendant_with_integration && <div>AI Integration Service: $319.20</div>}
+                          <div className="font-semibold border-t pt-1">
+                            Monthly Total (Discounted): {formatCurrency((q.monthly_recurring || 0) * 0.8)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-purple-50 p-3 rounded">
+                        <h5 className="font-semibold mb-2 text-purple-800">One-Time Charges (Discounted 30%)</h5>
+                        <div className="text-sm space-y-1">
+                          <div>
+                            Harnesses ({(q.num_washers || 0) + (q.num_dryers || 0)} × $17.50):{" "}
+                            {formatCurrency(((q.num_washers || 0) + (q.num_dryers || 0)) * 17.5)}
+                          </div>
+                          <div>QR Codes: $105.00</div>
+                          <div>Sign Package: $349.30</div>
+                          <div>Matterport 3D Scan: $209.30</div>
+                          <div>FULL Network Package: $1,399.30</div>
+                          <div>Laundry Boss Point of Sale System: $1,399.30</div>
+                          <div>Laundry Boss Installation: {formatCurrency((q.self_install ? 999 : 1999) * 0.7)}</div>
+                          <div className="font-semibold border-t pt-1">
+                            One-Time Total (Discounted): {formatCurrency((q.one_time_charges || 0) * 0.7)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Monthly (Discounted):</span>
+                        <span className="ml-2 font-medium">{formatCurrency((q.monthly_recurring || 0) * 0.8)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">One-Time (Discounted):</span>
+                        <span className="ml-2 font-medium">{formatCurrency((q.one_time_charges || 0) * 0.7)}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Total Savings:</span>
+                        <span className="ml-2 font-bold text-purple-600">
+                          {formatCurrency(
+                            (q.monthly_recurring || 0) * 48 +
+                              (q.one_time_charges || 0) -
+                              ((q.monthly_recurring || 0) * 0.8 * 48 + (q.one_time_charges || 0) * 0.7),
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
-                )
-              })()}
+                </details>
+              </div>
             </CardContent>
           </Card>
 

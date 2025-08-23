@@ -16,6 +16,8 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
   const [showDistributorDetails, setShowDistributorDetails] = useState(false)
   const [showCleanShowDetails, setShowCleanShowDetails] = useState(false)
   const [showOption3Details, setShowOption3Details] = useState(false)
+  const [showOption1Details, setShowOption1Details] = useState(false)
+  const [showOption2Details, setShowOption2Details] = useState(false)
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -141,24 +143,11 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
           yPosition,
         )
       } else {
-        // Option 1: Total Price
-        doc.setFontSize(12)
-        doc.setFont(undefined, "bold")
-        yPosition = addText(`Option 1 - Total Price: ${formatCurrency(totalPrice)}`, margin, yPosition)
-        doc.setFontSize(10)
-        doc.setFont(undefined, "normal")
-        yPosition = addText(
-          "Pay the full amount upfront and own your Laundry Boss system immediately.",
-          margin,
-          yPosition,
-        )
-        yPosition += 5
-
-        // Option 2: Financed Solution
+        // Option 1: BOSS HybridPay (Financed Solution)
         doc.setFontSize(12)
         doc.setFont(undefined, "bold")
         yPosition = addText(
-          `Option 2 - Financed: ${formatCurrency(financedMonthlyPayment)}/month for 48 months`,
+          `Option 1 - BOSS HybridPay: ${formatCurrency(financedMonthlyPayment)}/month for 48 months`,
           margin,
           yPosition,
         )
@@ -175,17 +164,30 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
         )
         yPosition += 5
 
-        // Option 3: Monthly Plan
+        // Option 2: Monthly Payment Plan
         doc.setFontSize(12)
         doc.setFont(undefined, "bold")
         yPosition = addText(
-          `Option 3 - Monthly Plan: ${formatCurrency(monthlyRecurring)}/month + ${formatCurrency(oneTimeCharges)} setup`,
+          `Option 2 - Monthly Plan: ${formatCurrency(monthlyRecurring)}/month + ${formatCurrency(oneTimeCharges)} setup`,
           margin,
           yPosition,
         )
         doc.setFontSize(10)
         doc.setFont(undefined, "normal")
         yPosition = addText("Low monthly payments with comprehensive service package.", margin, yPosition)
+        yPosition += 5
+
+        // Option 3: Total Price
+        doc.setFontSize(12)
+        doc.setFont(undefined, "bold")
+        yPosition = addText(`Option 3 - Total Price: ${formatCurrency(totalPrice)}`, margin, yPosition)
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
+        yPosition = addText(
+          "Pay the full amount upfront and own your Laundry Boss system immediately.",
+          margin,
+          yPosition,
+        )
         yPosition += 5
 
         // Option 4: Clean Show Special
@@ -751,106 +753,104 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
       {/* Pricing Options */}
       <div className="space-y-6">
-        {!isDistributor && (
-          <>
-            {/* Option 1: Total Price */}
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Option 1: Total Price</h3>
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-blue-600">{formatCurrency(totalPrice)}</p>
-                  <p className="text-sm text-gray-500">One-time payment</p>
-                </div>
-              </div>
-              <p className="text-gray-600">Pay the full amount upfront and own your Laundry Boss system immediately.</p>
-            </div>
+        {/* Option 1: Financed Solution */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Option 1: Financed Solution</h3>
+            <button
+              onClick={() => setShowOption1Details(!showOption1Details)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              {showOption1Details ? "Hide Details" : "Show Details"}
+            </button>
+          </div>
 
-            {/* Option 2: Financed Solution */}
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Option 2: Financed Solution</h3>
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-green-600">{formatCurrency(financedMonthlyPayment)}</p>
-                  <p className="text-sm text-gray-500">per month for 48 months</p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <p className="text-gray-600">Finance your Laundry Boss system with our competitive rates.</p>
+          <div className="text-right">
+            <p className="text-3xl font-bold text-green-600">{formatCurrency(financedMonthlyPayment)}</p>
+            <p className="text-sm text-gray-500">per month for 48 months</p>
+          </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800 mb-3">What's Being Financed:</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Present Value of Monthly Services (48 months)</span>
-                      <span>{formatCurrency(monthlyPV)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>One-Time Setup Charges</span>
-                      <span>{formatCurrency(oneTimeCharges)}</span>
-                    </div>
-                    <div className="border-t pt-2 font-semibold flex justify-between">
-                      <span>Total Amount Financed</span>
-                      <span>{formatCurrency(totalToFinance)}</span>
-                    </div>
+          {showOption1Details && (
+            <div className="mt-4">
+              <p className="text-gray-600">Finance your Laundry Boss system with our competitive rates.</p>
+
+              <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                <h4 className="font-medium text-gray-800 mb-3">What's Being Financed:</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Present Value of Monthly Services (48 months)</span>
+                    <span>{formatCurrency(monthlyPV)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>One-Time Setup Charges</span>
+                    <span>{formatCurrency(oneTimeCharges)}</span>
+                  </div>
+                  <div className="border-t pt-2 font-semibold flex justify-between">
+                    <span>Total Amount Financed</span>
+                    <span>{formatCurrency(totalToFinance)}</span>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-center space-x-4">
-                  <label className="text-sm font-medium text-gray-700">Interest Rate:</label>
-                  <input
-                    type="range"
-                    min="6"
-                    max="15"
-                    step="0.5"
-                    value={interestRate}
-                    onChange={(e) => setInterestRate(Number(e.target.value))}
-                    className="flex-1"
-                  />
-                  <span className="text-sm font-medium text-gray-900">{interestRate}%</span>
+              <div className="flex items-center space-x-4 mt-4">
+                <label className="text-sm font-medium text-gray-700">Interest Rate:</label>
+                <input
+                  type="range"
+                  min="6"
+                  max="15"
+                  step="0.5"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-sm font-medium text-gray-900">{interestRate}%</span>
+              </div>
+
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg text-sm">
+                <div className="space-y-2">
+                  <p>
+                    <strong>Amount to Finance:</strong> {formatCurrency(totalToFinance)}
+                  </p>
+                  <p>
+                    <strong>Interest Rate:</strong> {interestRate}%
+                  </p>
+                  <p>
+                    <strong>Term:</strong> 48 months
+                  </p>
+                  <p>
+                    <strong>Monthly Payment:</strong> {formatCurrency(financedMonthlyPayment)}
+                  </p>
+                  <p>
+                    <strong>Total of Payments:</strong> {formatCurrency(financedMonthlyPayment * 48)}
+                  </p>
+                  <p>
+                    <strong>Total Interest:</strong> {formatCurrency(financedMonthlyPayment * 48 - totalToFinance)}
+                  </p>
                 </div>
-
-                <button
-                  onClick={() => setShowFinanceDetails(!showFinanceDetails)}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  {showFinanceDetails ? "Hide" : "Show"} Financing Details
-                </button>
-                {showFinanceDetails && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg text-sm">
-                    <div className="space-y-2">
-                      <p>
-                        <strong>Amount to Finance:</strong> {formatCurrency(totalToFinance)}
-                      </p>
-                      <p>
-                        <strong>Interest Rate:</strong> {interestRate}%
-                      </p>
-                      <p>
-                        <strong>Term:</strong> 48 months
-                      </p>
-                      <p>
-                        <strong>Monthly Payment:</strong> {formatCurrency(financedMonthlyPayment)}
-                      </p>
-                      <p>
-                        <strong>Total of Payments:</strong> {formatCurrency(financedMonthlyPayment * 48)}
-                      </p>
-                      <p>
-                        <strong>Total Interest:</strong> {formatCurrency(financedMonthlyPayment * 48 - totalToFinance)}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Option 3: Monthly Payment Plan */}
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Option 3: Monthly Payment Plan</h3>
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-purple-600">{formatCurrency(monthlyRecurring)}</p>
-                  <p className="text-sm text-gray-500">per month + one-time setup</p>
-                </div>
-              </div>
+        {/* Option 2: BOSS HybridPay */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Option 2: BOSS HybridPay</h3>
+            <button
+              onClick={() => setShowOption2Details(!showOption2Details)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              {showOption2Details ? "Hide Details" : "Show Details"}
+            </button>
+          </div>
+
+          <div className="text-right">
+            <p className="text-3xl font-bold text-purple-600">{formatCurrency(monthlyRecurring)}</p>
+            <p className="text-sm text-gray-500">per month + one-time setup</p>
+          </div>
+
+          {showOption2Details && (
+            <div className="mt-4">
               <p className="text-gray-600 mb-4">
                 Low monthly payments with our comprehensive service package. Perfect for cash flow management.
               </p>
@@ -949,55 +949,6 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
                         Self-install with assistance ({data.numWashers + data.numDryers} machines)
                       </p>
                     )}
-                    {!data.selfInstall && (
-                      <p className="text-xs text-green-600 italic">
-                        Full installation service ({data.numWashers + data.numDryers} machines)
-                      </p>
-                    )}
-                    {getSelectedKiosks().length > 0 && (
-                      <div className="space-y-1">
-                        {data.kioskOptions.rearLoad.selected && (
-                          <div className="flex justify-between">
-                            <span>Rear Load Kiosks ({data.kioskOptions.rearLoad.quantity})</span>
-                            <span>
-                              {formatCurrency(
-                                pricingData.kioskOptions.rearLoadKiosk.price * data.kioskOptions.rearLoad.quantity,
-                              )}
-                            </span>
-                          </div>
-                        )}
-                        {data.kioskOptions.frontLoad.selected && (
-                          <div className="flex justify-between">
-                            <span>Front Load Kiosks ({data.kioskOptions.frontLoad.quantity})</span>
-                            <span>
-                              {formatCurrency(
-                                pricingData.kioskOptions.frontLoadKiosk.price * data.kioskOptions.frontLoad.quantity,
-                              )}
-                            </span>
-                          </div>
-                        )}
-                        {data.kioskOptions.creditBill.selected && (
-                          <div className="flex justify-between">
-                            <span>Credit Bill Kiosks ({data.kioskOptions.creditBill.quantity})</span>
-                            <span>
-                              {formatCurrency(
-                                pricingData.kioskOptions.creditBillKiosk.price * data.kioskOptions.creditBill.quantity,
-                              )}
-                            </span>
-                          </div>
-                        )}
-                        {data.kioskOptions.creditOnly.selected && (
-                          <div className="flex justify-between">
-                            <span>Credit Only Kiosks ({data.kioskOptions.creditOnly.quantity})</span>
-                            <span>
-                              {formatCurrency(
-                                pricingData.kioskOptions.creditOnlyKiosk.price * data.kioskOptions.creditOnly.quantity,
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                     <div className="border-t pt-1 font-semibold flex justify-between">
                       <span>One-Time Total</span>
                       <span>{formatCurrency(oneTimeCharges)}</span>
@@ -1006,80 +957,31 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowOption3Details(!showOption3Details)}
-                className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-              >
-                {showOption3Details ? "Hide" : "Show"} Pricing Details
-              </button>
-              {showOption3Details && (
-                <div className="mt-4 p-4 bg-purple-50 rounded-lg text-sm">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <h5 className="font-medium text-purple-800 mb-2">Monthly Services</h5>
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span>Washers ({data.numWashers})</span>
-                          <span>{formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Dryers ({data.numDryers})</span>
-                          <span>{formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price)}</span>
-                        </div>
-                        {data.wantsWashDryFold && (
-                          <div className="flex justify-between">
-                            <span>WDF Software</span>
-                            <span>{formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)}</span>
-                          </div>
-                        )}
-                        {data.wantsPickupDelivery && (
-                          <div className="flex justify-between">
-                            <span>Pickup & Delivery</span>
-                            <span>{formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)}</span>
-                          </div>
-                        )}
-                        {data.hasAiAttendant && (
-                          <div className="flex justify-between">
-                            <span>AI Attendant</span>
-                            <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}</span>
-                          </div>
-                        )}
-                        {data.hasAiAttendantWithIntegration && (
-                          <div className="flex justify-between">
-                            <span>AI Integration</span>
-                            <span>{formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <h5 className="font-medium text-purple-800 mb-2">One-Time Charges</h5>
-                      <div className="space-y-1">
-                        <div className="text-xs">
-                          Harnesses: {formatCurrency((data.numWashers + data.numDryers) * 25)}
-                        </div>
-                        <div className="text-xs">QR Codes: {formatCurrency(qrCodeInfo.totalCost)}</div>
-                        <div className="text-xs">Installation: {formatCurrency(installationCost)}</div>
-                        <div className="text-xs">
-                          Network Package: {formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}
-                        </div>
-                        {posSystemCost > 0 && (
-                          <div className="text-xs">POS System: {formatCurrency(posSystemCost)}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 p-3 bg-purple-100 rounded">
-                    <p className="text-purple-800 font-medium">💰 Total System Cost: {formatCurrency(totalPrice)}</p>
-                    <p className="text-xs text-purple-700">
-                      Monthly: {formatCurrency(monthlyRecurring * 48)} | One-time: {formatCurrency(oneTimeCharges)}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="bg-purple-100 p-4 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  <strong>Total First Month:</strong> {formatCurrency(monthlyRecurring + oneTimeCharges)}
+                </p>
+                <p className="text-sm text-purple-800">
+                  <strong>Months 2-48:</strong> {formatCurrency(monthlyRecurring)} per month
+                </p>
+                <p className="text-sm text-purple-800">
+                  <strong>Total 48-Month Cost:</strong> {formatCurrency(monthlyRecurring * 48 + oneTimeCharges)}
+                </p>
+              </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Option 3: Total Price</h3>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-blue-600">{formatCurrency(totalPrice)}</p>
+              <p className="text-sm text-gray-500">One-time payment</p>
+            </div>
+          </div>
+          <p className="text-gray-600">Pay the full amount upfront and own your Laundry Boss system immediately.</p>
+        </div>
 
         {/* Distributor Pricing */}
         {isDistributor && (
