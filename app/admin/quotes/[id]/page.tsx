@@ -119,11 +119,29 @@ export default function QuoteDetailPage() {
         return y + lines.length * (options.lineHeight || 6)
       }
 
+      const checkNewPage = (requiredSpace = 30) => {
+        if (yPosition > 280 - requiredSpace) {
+          doc.addPage()
+          yPosition = 20
+        }
+      }
+
+      const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      // Header
       doc.setFontSize(20)
       doc.setFont(undefined, "bold")
       yPosition = addText("Laundry Boss Quote", margin, yPosition)
       yPosition += 10
 
+      // Customer Information
       doc.setFontSize(12)
       doc.setFont(undefined, "normal")
       yPosition = addText(
@@ -141,65 +159,162 @@ export default function QuoteDetailPage() {
         margin,
         yPosition,
       )
+
+      const services = []
+      if (data?.quote.wants_wash_dry_fold) services.push("Wash-Dry-Fold")
+      if (data?.quote.wants_pickup_delivery) services.push("Pickup & Delivery")
+      if (services.length > 0) {
+        yPosition = addText(`Services: ${services.join(" | ")}`, margin, yPosition)
+      }
+      yPosition += 15
+
+      checkNewPage(80)
+
+      doc.setFontSize(16)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("📈 Revenue Growth Projections", margin, yPosition)
       yPosition += 10
 
-      doc.setFontSize(14)
-      doc.setFont(undefined, "bold")
-      yPosition = addText("Revenue Growth Projections", margin, yPosition)
-      yPosition += 5
-
-      doc.setFontSize(10)
-      doc.setFont(undefined, "normal")
       const monthlyRevenueBaseline = Math.max(0, Number(data?.quote.monthly_base_revenue || 0))
+      const weeksPerMonth = 4.33
       const upliftRate = 0.153
       const addedMonthlyRevenue = monthlyRevenueBaseline * upliftRate
       const projectedMonthlyAfterLB = monthlyRevenueBaseline + addedMonthlyRevenue
+      const addedWeeklyRevenue = addedMonthlyRevenue / weeksPerMonth
+      const projectedWeeklyAfterLB = projectedMonthlyAfterLB / weeksPerMonth
       const addedAnnualRevenue = addedMonthlyRevenue * 12
+      const projectedAnnualAfterLB = projectedMonthlyAfterLB * 12
 
-      yPosition = addText(`Current Monthly Revenue: ${formatCurrency(monthlyRevenueBaseline)}`, margin, yPosition)
-      yPosition = addText(`Projected Monthly Revenue: ${formatCurrency(projectedMonthlyAfterLB)}`, margin, yPosition)
-      yPosition = addText(`Additional Monthly Revenue: ${formatCurrency(addedMonthlyRevenue)}`, margin, yPosition)
-      yPosition = addText(`Additional Annual Revenue: ${formatCurrency(addedAnnualRevenue)}`, margin, yPosition)
-      yPosition += 10
-
-      doc.setFontSize(14)
+      doc.setFontSize(12)
       doc.setFont(undefined, "bold")
-      yPosition = addText("Pricing Options", margin, yPosition)
+      yPosition = addText("Current Revenue", margin, yPosition)
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`Weekly: ${formatCurrency(monthlyRevenueBaseline / weeksPerMonth)}`, margin, yPosition)
+      yPosition = addText(`Monthly: ${formatCurrency(monthlyRevenueBaseline)}`, margin, yPosition)
+      yPosition = addText(`Annual: ${formatCurrency(monthlyRevenueBaseline * 12)}`, margin, yPosition)
       yPosition += 5
 
       doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Projected with Laundry Boss", margin, yPosition)
+      doc.setFontSize(10)
       doc.setFont(undefined, "normal")
+      yPosition = addText(`Weekly: ${formatCurrency(projectedWeeklyAfterLB)}`, margin, yPosition)
+      yPosition = addText(`Monthly: ${formatCurrency(projectedMonthlyAfterLB)}`, margin, yPosition)
+      yPosition = addText(`Annual: ${formatCurrency(projectedAnnualAfterLB)}`, margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("💰 Additional Revenue", margin, yPosition)
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`${formatCurrency(addedWeeklyRevenue)}/week`, margin, yPosition)
+      yPosition = addText(`${formatCurrency(addedMonthlyRevenue)}/month`, margin, yPosition)
+      yPosition = addText(`${formatCurrency(addedAnnualRevenue)}/year`, margin, yPosition)
+      yPosition = addText("Based on 15.3% average increase in first ~90 days", margin, yPosition)
+      yPosition += 15
+
+      checkNewPage(100)
+
+      doc.setFontSize(16)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Pricing Options", margin, yPosition)
+      yPosition += 10
+
+      // Option 1: Total Price
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
       yPosition = addText(
-        `Option 1 - Total Price: ${formatCurrency(data?.quote.total_price_option1)}`,
+        `Option 1 - Total Price: ${formatCurrency(data?.quote.total_price_option1 || 0)}`,
         margin,
         yPosition,
       )
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(
+        "Pay the full amount upfront and own your Laundry Boss system immediately.",
+        margin,
+        yPosition,
+      )
+      yPosition += 5
+
+      // Option 2: Financed Solution
       if (data?.quote.financed_monthly_payment) {
+        doc.setFontSize(12)
+        doc.setFont(undefined, "bold")
         yPosition = addText(
-          `Option 2 - Financed: ${formatCurrency(data?.quote.financed_monthly_payment)}/month for 48 months`,
+          `Option 2 - Financed: ${formatCurrency(data.quote.financed_monthly_payment)}/month for 48 months`,
           margin,
           yPosition,
         )
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
+        yPosition = addText("Finance your Laundry Boss system with competitive rates.", margin, yPosition)
+        yPosition += 5
       }
+
+      // Option 3: Monthly Plan
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
       yPosition = addText(
-        `Option 3 - Monthly Plan: ${formatCurrency(data?.quote.monthly_recurring)}/month + ${formatCurrency(data?.quote.one_time_charges)} setup`,
+        `Option 3 - Monthly Plan: ${formatCurrency(data?.quote.monthly_recurring || 0)}/month + ${formatCurrency(data?.quote.one_time_charges || 0)} setup`,
         margin,
         yPosition,
       )
-      yPosition += 10
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText("Low monthly payments with comprehensive service package.", margin, yPosition)
+      yPosition += 5
 
-      const breakdown = getServiceBreakdown(data?.quote)
+      const cleanShowMonthlyRecurring = (data?.quote.monthly_recurring || 0) * 0.8 // 20% discount
+      const cleanShowOneTimeCharges = (data?.quote.one_time_charges || 0) * 0.7 // 30% discount on kiosks, but let's use conservative estimate
+      const cleanShowTotalPrice = cleanShowMonthlyRecurring * 48 + cleanShowOneTimeCharges
+      const totalSavings = (data?.quote.total_price_option1 || 0) - cleanShowTotalPrice
 
-      if (yPosition > 250) {
-        doc.addPage()
-        yPosition = 20
-      }
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText(
+        `Option 4 - Clean Show 2025 Special: ${formatCurrency(cleanShowTotalPrice)}`,
+        margin,
+        yPosition,
+      )
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText("Limited-time exclusive offer - same pricing as our distributors!", margin, yPosition)
+
+      yPosition += 3
+      yPosition = addText("✨ Special Discounts Applied:", margin, yPosition)
+      yPosition = addText("• 20% discount on all monthly services", margin, yPosition)
+      yPosition = addText("• 30% discount on all kiosk options", margin, yPosition)
+      yPosition += 3
+
+      yPosition = addText(
+        `Monthly Recurring (Discounted): ${formatCurrency(cleanShowMonthlyRecurring)}/month`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `One-Time Charges (Discounted): ${formatCurrency(cleanShowOneTimeCharges)}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(`Total Contract Value (48 months): ${formatCurrency(cleanShowTotalPrice)}`, margin, yPosition)
+
+      doc.setFont(undefined, "bold")
+      yPosition = addText(`💰 Your Total Savings: ${formatCurrency(totalSavings)}`, margin, yPosition)
+      doc.setFont(undefined, "normal")
+      yPosition += 15
+
+      checkNewPage(80)
 
       doc.setFontSize(14)
       doc.setFont(undefined, "bold")
-      yPosition = addText("Monthly Recurring Fees", margin, yPosition)
+      yPosition = addText("Monthly Recurring Fees (48-month contract)", margin, yPosition)
       yPosition += 5
 
+      const breakdown = getServiceBreakdown(data?.quote)
       doc.setFontSize(10)
       doc.setFont(undefined, "normal")
       breakdown.monthlyServices.forEach((service) => {
@@ -207,10 +322,13 @@ export default function QuoteDetailPage() {
       })
 
       doc.setFont(undefined, "bold")
-      yPosition = addText(`Monthly Total: ${formatCurrency(data?.quote.monthly_recurring)}`, margin, yPosition)
-      yPosition += 10
+      yPosition = addText(`Monthly Total: ${formatCurrency(data?.quote.monthly_recurring || 0)}`, margin, yPosition)
+      yPosition += 15
+
+      checkNewPage(80)
 
       doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
       yPosition = addText("One-Time Charges", margin, yPosition)
       yPosition += 5
 
@@ -221,16 +339,44 @@ export default function QuoteDetailPage() {
       })
 
       doc.setFont(undefined, "bold")
-      yPosition = addText(`One-Time Total: ${formatCurrency(data?.quote.one_time_charges)}`, margin, yPosition)
-      yPosition += 10
+      yPosition = addText(`One-Time Total: ${formatCurrency(data?.quote.one_time_charges || 0)}`, margin, yPosition)
+      yPosition += 15
+
+      checkNewPage(60)
+
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("📋 Additional Notes", margin, yPosition)
+      yPosition += 5
 
       doc.setFontSize(10)
       doc.setFont(undefined, "normal")
+      yPosition = addText("• All monthly pricing is based on a 48-month contract term", margin, yPosition)
+      yPosition = addText("• Installation includes full setup and training for your team", margin, yPosition)
+      yPosition = addText("• 24/7 technical support and maintenance included", margin, yPosition)
+      yPosition = addText("• Revenue projections based on Laundry Boss average performance data", margin, yPosition)
+      yPosition = addText("• Financing options available with approved credit", margin, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Why Laundry Boss is a Perfect Fit:", margin, yPosition)
+      yPosition += 3
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText("• Proven track record of 15.3% average revenue increase", margin, yPosition)
+      yPosition = addText("• Smart monitoring reduces equipment downtime", margin, yPosition)
+      yPosition = addText("• Enhanced customer experience drives repeat business", margin, yPosition)
+      yPosition = addText("• Real-time analytics help optimize operations", margin, yPosition)
+      yPosition += 15
+
+      // Footer
       yPosition = addText("Generated by Laundry Boss Admin Panel", margin, yPosition)
       yPosition = addText(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition)
 
       const fileName = `LaundryBoss_Quote_${(data?.quote.prospect_name || "Quote").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
-      console.log("[v0] Admin PDF generated successfully:", fileName)
+      console.log("[v0] Comprehensive admin PDF generated successfully:", fileName)
 
       try {
         console.log("[v0] Attempting to download PDF:", fileName)
