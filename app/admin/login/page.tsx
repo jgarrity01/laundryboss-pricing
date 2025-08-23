@@ -84,8 +84,10 @@ export default function AdminLoginPage() {
       setSuccess("Login successful! Redirecting to dashboard...") // Added success feedback before redirect
 
       setTimeout(() => {
-        router.push("/admin")
-      }, 1000) // Added small delay to show success message and ensure proper redirect
+        console.log("[v0] Attempting redirect to /admin")
+        // Use window.location.href for more reliable redirect in production
+        window.location.href = "/admin"
+      }, 1500) // Increased delay slightly to ensure success message is visible
     } catch (error) {
       console.error("[v0] Authentication error:", error)
       setError(`Exception: ${error instanceof Error ? error.message : "Unknown error"}`)
