@@ -191,10 +191,41 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
         // Option 4: Clean Show Special
         doc.setFontSize(12)
         doc.setFont(undefined, "bold")
-        yPosition = addText(`Option 4 - Clean Show Special: ${formatCurrency(cleanShowTotalPrice)}`, margin, yPosition)
+        yPosition = addText(
+          `Option 4 - Clean Show 2025 Special: ${formatCurrency(cleanShowTotalPrice)}`,
+          margin,
+          yPosition,
+        )
         doc.setFontSize(10)
         doc.setFont(undefined, "normal")
-        yPosition = addText("Same great pricing as our distributors - limited time offer!", margin, yPosition)
+        yPosition = addText("Limited-time exclusive offer - same pricing as our distributors!", margin, yPosition)
+
+        yPosition += 3
+        yPosition = addText("✨ Special Discounts Applied:", margin, yPosition)
+        yPosition = addText("• 20% discount on all monthly services", margin, yPosition)
+        yPosition = addText("• 30% discount on all kiosk options", margin, yPosition)
+        yPosition += 3
+
+        yPosition = addText(
+          `Monthly Recurring (Discounted): ${formatCurrency(cleanShowPricing.monthlyRecurring)}/month`,
+          margin,
+          yPosition,
+        )
+        yPosition = addText(
+          `One-Time Charges (Discounted): ${formatCurrency(cleanShowPricing.oneTimeCharges)}`,
+          margin,
+          yPosition,
+        )
+        yPosition = addText(
+          `Total Contract Value (48 months): ${formatCurrency(cleanShowTotalPrice)}`,
+          margin,
+          yPosition,
+        )
+
+        const totalSavings = totalPrice - cleanShowTotalPrice
+        doc.setFont(undefined, "bold")
+        yPosition = addText(`💰 Your Total Savings: ${formatCurrency(totalSavings)}`, margin, yPosition)
+        doc.setFont(undefined, "normal")
       }
       yPosition += 15
 
