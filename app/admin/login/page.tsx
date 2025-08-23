@@ -16,12 +16,14 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState("") // Added success state for better user feedback
   const router = useRouter()
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
+    setSuccess("") // Clear success message on new attempt
 
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -79,7 +81,11 @@ export default function AdminLoginPage() {
 
       console.log("[v0] Role check passed, redirecting to dashboard...")
 
-      router.push("/admin")
+      setSuccess("Login successful! Redirecting to dashboard...") // Added success feedback before redirect
+
+      setTimeout(() => {
+        router.push("/admin")
+      }, 1000) // Added small delay to show success message and ensure proper redirect
     } catch (error) {
       console.error("[v0] Authentication error:", error)
       setError(`Exception: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -116,6 +122,10 @@ export default function AdminLoginPage() {
               </div>
             )}
 
+            {success && (
+              <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded">{success}</div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -139,7 +149,7 @@ export default function AdminLoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Authenticating..." : success ? "Redirecting..." : "Sign in"}
             </Button>
           </form>
 
