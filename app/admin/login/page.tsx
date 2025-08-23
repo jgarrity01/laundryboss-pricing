@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import Link from "next/link"
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("admin@thelaundryboss.com")
@@ -23,12 +24,18 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const supabase = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (!supabaseUrl || !supabaseKey) {
+        setError("Missing Supabase configuration. Please check environment variables.")
+        return
+      }
+
+      const supabase = createSupabaseClient(supabaseUrl, supabaseKey)
 
       console.log("[v0] Client-side authentication starting...")
+      console.log("[v0] Supabase URL:", supabaseUrl.substring(0, 30) + "...")
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -37,7 +44,15 @@ export default function AdminLoginPage() {
 
       if (authError) {
         console.error("[v0] Login error:", authError)
-        setError(`Authentication failed: ${authError.message}`)
+        if (authError.message.includes("Invalid login credentials")) {
+          setError(
+            "Invalid email or password. If this is a new deployment, you may need to set up the admin user first.",
+          )
+        } else if (authError.message.includes("Email not confirmed")) {
+          setError("Email not confirmed. Please check your email or contact support.")
+        } else {
+          setError(`Authentication failed: ${authError.message}`)
+        }
         return
       }
 
@@ -51,10 +66,14 @@ export default function AdminLoginPage() {
       // Check user role
       const userRole = authData.user.user_metadata?.role || authData.user.app_metadata?.role
       console.log("[v0] User role:", userRole)
+      console.log("[v0] User metadata:", authData.user.user_metadata)
+      console.log("[v0] App metadata:", authData.user.app_metadata)
 
       const allowedRoles = ["admin", "superuser"]
       if (!allowedRoles.includes(userRole)) {
-        setError(`Access denied. Role: ${userRole || "none"} (need: admin or superuser)`)
+        setError(
+          `Access denied. Role: ${userRole || "none"} (need: admin or superuser). If this is a new deployment, the admin user may need to be set up with proper roles.`,
+        )
         return
       }
 
@@ -84,7 +103,18 @@ export default function AdminLoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignIn} className="space-y-4">
-            {error && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">{error}</div>}
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">
+                {error}
+                {(error.includes("Invalid login credentials") || error.includes("Access denied")) && (
+                  <div className="mt-2 pt-2 border-t border-red-200">
+                    <Link href="/admin/setup" className="text-blue-600 hover:text-blue-800 underline text-xs">
+                      Set up admin user for new deployment →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -112,6 +142,13 @@ export default function AdminLoginPage() {
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
+
+          <div className="mt-4 pt-4 border-t text-center">
+            <p className="text-xs text-gray-500 mb-2">New deployment?</p>
+            <Link href="/admin/setup" className="text-sm text-blue-600 hover:text-blue-800 underline">
+              Set up admin user
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </main>
