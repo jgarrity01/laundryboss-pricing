@@ -41,7 +41,15 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
         return y + lines.length * (options.lineHeight || 6)
       }
 
-      console.log("[v0] Building PDF content...")
+      // Helper function to check if we need a new page
+      const checkNewPage = (requiredSpace = 30) => {
+        if (yPosition > 280 - requiredSpace) {
+          doc.addPage()
+          yPosition = 20
+        }
+      }
+
+      console.log("[v0] Building comprehensive PDF content...")
 
       // Header
       doc.setFontSize(20)
@@ -63,102 +71,177 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
         if (getSelectedKiosks().length > 0) services.push(`Kiosks: ${getSelectedKiosks().join(", ")}`)
         yPosition = addText(`Services: ${services.join(" | ")}`, margin, yPosition)
       }
+      yPosition += 15
+
+      checkNewPage(80)
+
+      doc.setFontSize(16)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("📈 Revenue Growth Projections", margin, yPosition)
       yPosition += 10
 
-      // Revenue Projections
-      doc.setFontSize(14)
+      doc.setFontSize(12)
       doc.setFont(undefined, "bold")
-      yPosition = addText("Revenue Growth Projections", margin, yPosition)
-      yPosition += 5
-
+      yPosition = addText("Current Revenue", margin, yPosition)
       doc.setFontSize(10)
       doc.setFont(undefined, "normal")
-      yPosition = addText(`Current Monthly Revenue: ${formatCurrency(monthlyRevenueBaseline)}`, margin, yPosition)
-      yPosition = addText(`Projected Monthly Revenue: ${formatCurrency(projectedMonthlyAfterLB)}`, margin, yPosition)
-      yPosition = addText(`Additional Monthly Revenue: ${formatCurrency(addedMonthlyRevenue)}`, margin, yPosition)
-      yPosition = addText(`Additional Annual Revenue: ${formatCurrency(addedAnnualRevenue)}`, margin, yPosition)
-      yPosition += 10
-
-      // Pricing Options
-      doc.setFontSize(14)
-      doc.setFont(undefined, "bold")
-      yPosition = addText("Pricing Options", margin, yPosition)
+      yPosition = addText(`Weekly: ${formatCurrency(monthlyRevenueBaseline / weeksPerMonth)}`, margin, yPosition)
+      yPosition = addText(`Monthly: ${formatCurrency(monthlyRevenueBaseline)}`, margin, yPosition)
+      yPosition = addText(`Annual: ${formatCurrency(monthlyRevenueBaseline * 12)}`, margin, yPosition)
       yPosition += 5
 
       doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Projected with Laundry Boss", margin, yPosition)
+      doc.setFontSize(10)
       doc.setFont(undefined, "normal")
+      yPosition = addText(`Weekly: ${formatCurrency(projectedWeeklyAfterLB)}`, margin, yPosition)
+      yPosition = addText(`Monthly: ${formatCurrency(projectedMonthlyAfterLB)}`, margin, yPosition)
+      yPosition = addText(`Annual: ${formatCurrency(projectedAnnualAfterLB)}`, margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("💰 Additional Revenue", margin, yPosition)
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`${formatCurrency(addedWeeklyRevenue)}/week`, margin, yPosition)
+      yPosition = addText(`${formatCurrency(addedMonthlyRevenue)}/month`, margin, yPosition)
+      yPosition = addText(`${formatCurrency(addedAnnualRevenue)}/year`, margin, yPosition)
+      yPosition = addText("Based on 15.3% average increase in first ~90 days", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("🔧 Operational Savings", margin, yPosition)
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText(`${formatCurrency(weeklyOperationalSavings)}/week`, margin, yPosition)
+      yPosition = addText(`${formatCurrency(monthlyOperationalSavings)}/month`, margin, yPosition)
+      yPosition = addText(`${formatCurrency(annualOperationalSavings)}/year`, margin, yPosition)
+      yPosition = addText("Reduced wear and tear from embedded readers.", margin, yPosition)
+      yPosition += 15
+
+      checkNewPage(100)
+
+      doc.setFontSize(16)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Pricing Options", margin, yPosition)
+      yPosition += 10
 
       if (isDistributor) {
+        doc.setFontSize(14)
+        doc.setFont(undefined, "bold")
         yPosition = addText(`Distributor Pricing: ${formatCurrency(distributorTotalPrice)}`, margin, yPosition)
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
         yPosition = addText(
           "Special distributor pricing with 20% discount on monthly services and 30% discount on kiosks.",
           margin,
           yPosition,
         )
       } else {
+        // Option 1: Total Price
+        doc.setFontSize(12)
+        doc.setFont(undefined, "bold")
         yPosition = addText(`Option 1 - Total Price: ${formatCurrency(totalPrice)}`, margin, yPosition)
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
+        yPosition = addText(
+          "Pay the full amount upfront and own your Laundry Boss system immediately.",
+          margin,
+          yPosition,
+        )
+        yPosition += 5
+
+        // Option 2: Financed Solution
+        doc.setFontSize(12)
+        doc.setFont(undefined, "bold")
         yPosition = addText(
           `Option 2 - Financed: ${formatCurrency(financedMonthlyPayment)}/month for 48 months`,
           margin,
           yPosition,
         )
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
+        yPosition = addText("Finance your Laundry Boss system with competitive rates.", margin, yPosition)
+        yPosition = addText(`Amount Financed: ${formatCurrency(totalToFinance)}`, margin, yPosition)
+        yPosition = addText(`Interest Rate: ${interestRate}%`, margin, yPosition)
+        yPosition = addText(`Total of Payments: ${formatCurrency(financedMonthlyPayment * 48)}`, margin, yPosition)
+        yPosition = addText(
+          `Total Interest: ${formatCurrency(financedMonthlyPayment * 48 - totalToFinance)}`,
+          margin,
+          yPosition,
+        )
+        yPosition += 5
+
+        // Option 3: Monthly Plan
+        doc.setFontSize(12)
+        doc.setFont(undefined, "bold")
         yPosition = addText(
           `Option 3 - Monthly Plan: ${formatCurrency(monthlyRecurring)}/month + ${formatCurrency(oneTimeCharges)} setup`,
           margin,
           yPosition,
         )
-        yPosition = addText(`Option 4 - Clean Show Special: ${formatCurrency(cleanShowTotalPrice)}`, margin, yPosition)
-      }
-      yPosition += 10
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
+        yPosition = addText("Low monthly payments with comprehensive service package.", margin, yPosition)
+        yPosition += 5
 
-      // Monthly Recurring Breakdown
-      if (yPosition > 250) {
-        doc.addPage()
-        yPosition = 20
+        // Option 4: Clean Show Special
+        doc.setFontSize(12)
+        doc.setFont(undefined, "bold")
+        yPosition = addText(`Option 4 - Clean Show Special: ${formatCurrency(cleanShowTotalPrice)}`, margin, yPosition)
+        doc.setFontSize(10)
+        doc.setFont(undefined, "normal")
+        yPosition = addText("Same great pricing as our distributors - limited time offer!", margin, yPosition)
       }
+      yPosition += 15
+
+      checkNewPage(80)
 
       doc.setFontSize(14)
       doc.setFont(undefined, "bold")
-      yPosition = addText("Monthly Recurring Fees", margin, yPosition)
+      yPosition = addText("Monthly Recurring Fees (48-month contract)", margin, yPosition)
       yPosition += 5
 
       doc.setFontSize(10)
       doc.setFont(undefined, "normal")
       yPosition = addText(
-        `Washers (${data.numWashers}): ${formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price)}`,
+        `Washers (${data.numWashers} × ${formatCurrency(pricingData.monthlyRecurring.washers.price)}): ${formatCurrency(data.numWashers * pricingData.monthlyRecurring.washers.price)}`,
         margin,
         yPosition,
       )
       yPosition = addText(
-        `Dryers (${data.numDryers}): ${formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price)}`,
+        `Dryers (${data.numDryers} × ${formatCurrency(pricingData.monthlyRecurring.dryers.price)}): ${formatCurrency(data.numDryers * pricingData.monthlyRecurring.dryers.price)}`,
         margin,
         yPosition,
       )
 
       if (data.wantsWashDryFold) {
         yPosition = addText(
-          `WDF Software: ${formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)}`,
+          `WDF Software License: ${formatCurrency(pricingData.monthlyRecurring.wdfSoftware.price)}`,
           margin,
           yPosition,
         )
       }
       if (data.wantsPickupDelivery) {
         yPosition = addText(
-          `Pickup & Delivery: ${formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)}`,
+          `Pick Up & Delivery License: ${formatCurrency(pricingData.monthlyRecurring.pickupDelivery.price)}`,
           margin,
           yPosition,
         )
       }
       if (data.hasAiAttendant) {
         yPosition = addText(
-          `AI Attendant: ${formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}`,
+          `AI Attendant Service: ${formatCurrency(pricingData.monthlyRecurring.aiAttendant.price)}`,
           margin,
           yPosition,
         )
       }
       if (data.hasAiAttendantWithIntegration) {
         yPosition = addText(
-          `AI Integration: ${formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price)}`,
+          `AI Integration Service: ${formatCurrency(pricingData.monthlyRecurring.aiAttendantWithIntegration.price)}`,
           margin,
           yPosition,
         )
@@ -166,20 +249,24 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
       doc.setFont(undefined, "bold")
       yPosition = addText(`Monthly Total: ${formatCurrency(monthlyRecurring)}`, margin, yPosition)
-      yPosition += 10
+      yPosition += 15
 
-      // One-Time Charges
+      checkNewPage(80)
+
       doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
       yPosition = addText("One-Time Charges", margin, yPosition)
       yPosition += 5
 
       doc.setFontSize(10)
       doc.setFont(undefined, "normal")
-      yPosition = addText(`Harnesses: ${formatCurrency((data.numWashers + data.numDryers) * 25)}`, margin, yPosition)
-      yPosition = addText(`QR Codes: ${formatCurrency(qrCodeInfo.totalCost)}`, margin, yPosition)
-      yPosition = addText(`Installation: ${formatCurrency(installationCost)}`, margin, yPosition)
       yPosition = addText(
-        `Network Package: ${formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}`,
+        `Harnesses (${data.numWashers + data.numDryers} × $25.00): ${formatCurrency((data.numWashers + data.numDryers) * 25)}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(
+        `QR Codes (${qrCodeInfo.quantity} × ${formatCurrency(qrCodeInfo.pricePerCode)}): ${formatCurrency(qrCodeInfo.totalCost)}`,
         margin,
         yPosition,
       )
@@ -189,17 +276,38 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
         yPosition,
       )
       yPosition = addText(
-        `Matterport 3D: ${formatCurrency(pricingData.oneTimeCharges.matterport3D.price)}`,
+        `Matterport 3D Scan: ${formatCurrency(pricingData.oneTimeCharges.matterport3D.price)}`,
         margin,
         yPosition,
       )
+      yPosition = addText(
+        `FULL Network Package: ${formatCurrency(pricingData.oneTimeCharges.fullNetworkPackage.price)}`,
+        margin,
+        yPosition,
+      )
+      yPosition = addText(`Laundry Boss Point of Sale System: ${formatCurrency(posSystemCost)}`, margin, yPosition)
+      yPosition = addText(`Laundry Boss Installation: ${formatCurrency(installationCost)}`, margin, yPosition)
 
-      if (posSystemCost > 0) {
-        yPosition = addText(`POS System: ${formatCurrency(posSystemCost)}`, margin, yPosition)
+      if (data.selfInstall) {
+        yPosition = addText(
+          `Self-install with assistance (${data.numWashers + data.numDryers} machines)`,
+          margin,
+          yPosition,
+        )
+      } else {
+        yPosition = addText(
+          `Full installation service (${data.numWashers + data.numDryers} machines)`,
+          margin,
+          yPosition,
+        )
       }
 
-      // Kiosks
       if (getSelectedKiosks().length > 0) {
+        yPosition += 3
+        doc.setFont(undefined, "bold")
+        yPosition = addText("Kiosk Options:", margin, yPosition)
+        doc.setFont(undefined, "normal")
+
         if (data.kioskOptions.rearLoad.selected) {
           yPosition = addText(
             `Rear Load Kiosks (${data.kioskOptions.rearLoad.quantity}): ${formatCurrency(pricingData.kioskOptions.rearLoadKiosk.price * data.kioskOptions.rearLoad.quantity)}`,
@@ -232,7 +340,36 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
       doc.setFont(undefined, "bold")
       yPosition = addText(`One-Time Total: ${formatCurrency(oneTimeCharges)}`, margin, yPosition)
+      yPosition += 15
+
+      checkNewPage(60)
+
+      doc.setFontSize(14)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("📋 Additional Notes", margin, yPosition)
+      yPosition += 5
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText("• All monthly pricing is based on a 48-month contract term", margin, yPosition)
+      yPosition = addText("• Installation includes full setup and training for your team", margin, yPosition)
+      yPosition = addText("• 24/7 technical support and maintenance included", margin, yPosition)
+      yPosition = addText("• Revenue projections based on Laundry Boss average performance data", margin, yPosition)
+      yPosition = addText("• Financing options available with approved credit", margin, yPosition)
       yPosition += 10
+
+      doc.setFontSize(12)
+      doc.setFont(undefined, "bold")
+      yPosition = addText("Why Laundry Boss is a Perfect Fit:", margin, yPosition)
+      yPosition += 3
+
+      doc.setFontSize(10)
+      doc.setFont(undefined, "normal")
+      yPosition = addText("• Proven track record of 15.3% average revenue increase", margin, yPosition)
+      yPosition = addText("• Smart monitoring reduces equipment downtime", margin, yPosition)
+      yPosition = addText("• Enhanced customer experience drives repeat business", margin, yPosition)
+      yPosition = addText("• Real-time analytics help optimize operations", margin, yPosition)
+      yPosition += 15
 
       // Footer
       yPosition = addText("Generated by Laundry Boss Pricing Calculator", margin, yPosition)
@@ -240,7 +377,7 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
       // Save PDF
       const fileName = `LaundryBoss_Quote_${data.prospectName.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
-      console.log("[v0] Saving PDF with filename:", fileName)
+      console.log("[v0] Saving comprehensive PDF with filename:", fileName)
       doc.save(fileName)
 
       // Save PDF reference to database
@@ -261,7 +398,7 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
         console.log("[v0] PDF reference save result:", result)
 
         if (response.ok) {
-          console.log("[v0] PDF generated and saved successfully!")
+          console.log("[v0] Comprehensive PDF generated and saved successfully!")
         } else {
           console.error("[v0] Failed to save PDF reference:", result)
         }
@@ -544,7 +681,7 @@ export function PricingCalculator({ data, onBack, onNewQuote }: PricingCalculato
 
           <div className="overflow-hidden rounded-lg border">
             <div className="grid grid-cols-3 bg-gray-50 text-sm font-medium">
-              <div className="px-4 py-3 text-left">Timeframe</div>
+              <div className="px-4 py-3 text-left">Time</div>
               <div className="px-4 py-3 text-center">Before LB</div>
               <div className="px-4 py-3 text-center">After LB</div>
             </div>
